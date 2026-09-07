@@ -12,7 +12,7 @@ namespace T_PACE
     {
         // URL da rota POST do seu Cloudflare Worker que faz a autenticação
         private static readonly string apiLoginUrl = "https://tpace-api.whyguiih.workers.dev/api/web/login";
-        private const string VersaoAtualApp = "1.2.0"; // Controle a versão do seu app compilado aqui!
+        private const string VersaoAtualApp = "1.3.3"; // Controle a versão do seu app compilado aqui!
         public LoginWindow()
         {
             InitializeComponent();
@@ -49,7 +49,7 @@ namespace T_PACE
 
             // Desativa o botão enquanto a API do Cloudflare responde
             btnOk.IsEnabled = false;
-            txtMensagem.Text = "Autenticando na nuvem...";
+            txtMensagem.Text = "Autenticando...";
 
             try
             {
@@ -125,7 +125,7 @@ namespace T_PACE
                 }
                 else
                 {
-                    txtMensagem.Text = "Sem internet e usuário não encontrado offline.";
+                    txtMensagem.Text = "Sem internet.";
                     btnOk.IsEnabled = true;
                 }
             }

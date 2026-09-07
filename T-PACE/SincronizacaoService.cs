@@ -126,33 +126,62 @@ namespace T_PACE
                         using (var connection = new SqliteConnection(DatabaseConfig.ConnectionString))
                         {
                             connection.Open();
-                            foreach (var p in produtosCloudflare)
+
+                            using (var tx = connection.BeginTransaction())
                             {
-                                string sql = @"
-                                    INSERT INTO tb_produtos (id, codigo_barras, nome, custo, preco_venda, ncm, cest, aliquotas_imposto, quantidade, valor_promocional, unidade_venda, em_promocao, lote, validade, id_filial, quantidade_minima, foto, codigo_geral)
-                                     VALUES (@id, @codigo_barras, @nome, @custo, @preco_venda, @ncm, @cest, @aliquotas_imposto, @quantidade, @valor_promocional, @unidade_venda, @em_promocao, @lote, @validade, @id_filial, @quantidade_minima, @foto, @codigo_geral)
-                                    ON CONFLICT(id) DO UPDATE SET 
-                                        codigo_barras = excluded.codigo_barras,
-                                        nome = excluded.nome,
-                                        custo = excluded.custo,
-                                        preco_venda = excluded.preco_venda,
-                                        ncm = excluded.ncm,
-                                        cest = excluded.cest,
-                                        aliquotas_imposto = excluded.aliquotas_imposto,
-                                        quantidade = excluded.quantidade,
-                                        valor_promocional = excluded.valor_promocional,
-                                        unidade_venda = excluded.unidade_venda,
-                                        em_promocao = excluded.em_promocao,
-                                        lote = excluded.lote,
-                                        validade = excluded.validade,
-                                        id_filial = excluded.id_filial,
-                                        quantidade_minima = excluded.quantidade_minima,
-                                        foto = excluded.foto,
-                                        codigo_geral = excluded.codigo_geral;
-                                ";
-                                connection.Execute(sql, p);
+                                try
+                                {
+                                    // A) Inserção Inteligente (Cria os novos e atualiza os existentes)
+                                    foreach (var p in produtosCloudflare)
+                                    {
+                                        string sql = @"
+                                            INSERT INTO tb_produtos (id, codigo_barras, nome, custo, preco_venda, ncm, cest, aliquotas_imposto, quantidade, valor_promocional, unidade_venda, em_promocao, lote, validade, id_filial, quantidade_minima, foto, codigo_geral)
+                                             VALUES (@id, @codigo_barras, @nome, @custo, @preco_venda, @ncm, @cest, @aliquotas_imposto, @quantidade, @valor_promocional, @unidade_venda, @em_promocao, @lote, @validade, @id_filial, @quantidade_minima, @foto, @codigo_geral)
+                                            ON CONFLICT(id) DO UPDATE SET 
+                                                codigo_barras = excluded.codigo_barras,
+                                                nome = excluded.nome,
+                                                custo = excluded.custo,
+                                                preco_venda = excluded.preco_venda,
+                                                ncm = excluded.ncm,
+                                                cest = excluded.cest,
+                                                aliquotas_imposto = excluded.aliquotas_imposto,
+                                                quantidade = excluded.quantidade,
+                                                valor_promocional = excluded.valor_promocional,
+                                                unidade_venda = excluded.unidade_venda,
+                                                em_promocao = excluded.em_promocao,
+                                                lote = excluded.lote,
+                                                validade = excluded.validade,
+                                                id_filial = excluded.id_filial,
+                                                quantidade_minima = excluded.quantidade_minima,
+                                                foto = excluded.foto,
+                                                codigo_geral = excluded.codigo_geral;";
+
+                                        connection.Execute(sql, p, transaction: tx);
+                                    }
+
+                                    // B) LIMPEZA CIRÚRGICA DE ZUMBIS: Apaga os produtos locais que não vieram da nuvem, 
+                                    // MAS apenas se eles NUNCA tiverem sido vendidos (protege a integridade do PDV)
+                                    var idsNuvem = string.Join(",", produtosCloudflare.Select(p => p.id));
+                                    string sqlLimpeza = $@"
+                                        DELETE FROM tb_produtos 
+                                        WHERE id NOT IN ({idsNuvem}) 
+                                        AND id NOT IN (SELECT DISTINCT id_produto FROM tb_itens_venda)
+                                        AND codigo_barras NOT IN (SELECT DISTINCT produto_retornado FROM tb_trocas);";
+
+                                    connection.Execute(sqlLimpeza, transaction: tx);
+
+                                    // Confirma a operação!
+                                    tx.Commit();
+                                }
+                                catch
+                                {
+                                    tx.Rollback();
+                                    throw;
+                                }
                             }
                         }
+
+                        // 2. SEGUNDO LOOP: Baixa as fotos para o Cache Local...
 
                         // 2. SEGUNDO LOOP: Baixa as fotos para o Cache Local
                         string pastaImagens = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Imagens");
@@ -168,8 +197,9 @@ namespace T_PACE
                             {
                                 try
                                 {
-                                    // Limpa URLs antigas que ficaram zumbis no banco com "pub-https://"
-                                    string urlLimpa = prod.foto.Replace("pub-https://", "pub-");
+                                    // Limpeza agressiva para garantir que o link S3 antigo vire um link R2 Dev público válido
+                                    string urlLimpa = prod.foto.Replace("pub-https://", "pub-")
+                                                               .Replace(".r2.cloudflarestorage.com/tpacem.r2.dev/", ".r2.dev/");
 
                                     // Pega só o nome final do arquivo (ex: foto.jpg)
                                     string nomeArquivo = urlLimpa.Substring(urlLimpa.LastIndexOf('/') + 1);

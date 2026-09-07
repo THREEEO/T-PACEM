@@ -1,20 +1,60 @@
 ﻿using Microsoft.Data.Sqlite;
 using System.IO;
 using Dapper;
+using System; // Necessário para usar o System.Convert
 
 namespace T_PACE
 {
+    // 1. Tradutor para converter Double em Decimal (Resolve o erro do F4)
+    public class DecimalTypeHandler : SqlMapper.TypeHandler<decimal>
+    {
+        public override void SetValue(System.Data.IDbDataParameter parameter, decimal value)
+        {
+            parameter.Value = value;
+        }
+
+        public override decimal Parse(object value)
+        {
+            return Convert.ToDecimal(value);
+        }
+    }
+
+    // 2. Tradutor para converter Double em Long (Resolve o erro que você acabou de reportar)
+    public class LongFromDoubleTypeHandler : SqlMapper.TypeHandler<long>
+    {
+        public override void SetValue(System.Data.IDbDataParameter parameter, long value)
+        {
+            parameter.Value = value;
+        }
+
+        public override long Parse(object value)
+        {
+            return Convert.ToInt64(value);
+        }
+    }
+
     public static class DatabaseConfig
     {
         private static string dbPath = Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "tpace_pdv.sqlite");
-
         public static string ConnectionString => $"Data Source={dbPath};";
 
         public static void InicializarBanco()
         {
+            // Registra os TypeHandlers
+            try
+            {
+                SqlMapper.AddTypeHandler(new LongFromDoubleTypeHandler());
+                SqlMapper.AddTypeHandler(new DecimalTypeHandler());
+            }
+            catch
+            {
+                // se já registrado ou falhar por algum motivo, prosseguimos sem interromper
+            }
+
             // 1. CRIA O BANCO SE ELE NÃO EXISTIR
             if (!File.Exists(dbPath))
             {
+                // ... (O restante do seu código continua normalmente a partir daqui)
                 using (var connection = new SqliteConnection(ConnectionString))
                 {
                     connection.Open();

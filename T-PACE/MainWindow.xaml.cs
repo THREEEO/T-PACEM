@@ -57,7 +57,6 @@ namespace T_PACE
         }
 
         // Adicionamos a palavra 'async' aqui na assinatura do método
-        // Adicionamos a palavra 'async' aqui na assinatura do método
         private async void TxtBusca_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -171,7 +170,6 @@ namespace T_PACE
                     {
                         string nomeArquivo = produto.foto.Substring(produto.foto.LastIndexOf('/') + 1);
                         string caminhoLocal = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Imagens", nomeArquivo);
-
                         if (System.IO.File.Exists(caminhoLocal))
                         {
                             try
@@ -183,7 +181,11 @@ namespace T_PACE
                                 bitmap.EndInit();
                                 bitmap.Freeze(); // Garante estabilidade na interface gráfica
 
-                                imgProdutoFoto.Source = bitmap;
+                                // CORREÇÃO: Aplica rotação de 90° para compensar o formato de orientação do celular
+                                var rotatedBitmap = new System.Windows.Media.Imaging.TransformedBitmap(bitmap, new System.Windows.Media.RotateTransform(90));
+                                rotatedBitmap.Freeze();
+
+                                imgProdutoFoto.Source = rotatedBitmap;
                                 imgProdutoFoto.Visibility = Visibility.Visible;
                                 txtFotoPlaceholder.Visibility = Visibility.Collapsed;
                             }
@@ -359,7 +361,7 @@ namespace T_PACE
             using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseConfig.ConnectionString))
             {
                 var itens = conn.Query<ItemVendaTroca>(@"
-                    SELECT v.id as id_venda, p.codigo_barras, p.nome, iv.quantidade as quantidade_comprada, iv.preco_unitario
+                    SELECT v.id as id_venda, p.id as id_produto, p.codigo_barras, p.nome, iv.quantidade as quantidade_comprada, iv.preco_unitario
                     FROM tb_vendas v
                     JOIN tb_itens_venda iv ON v.id = iv.id_venda
                     JOIN tb_produtos p ON iv.id_produto = p.id
@@ -421,12 +423,17 @@ namespace T_PACE
                             decimal valorItem = qtdTroca * selecionado.preco_unitario;
                             valorTotalDevolvido += valorItem;
 
-                            conn.Execute(@"INSERT INTO tb_trocas (tipo_troca, id_vendedor, produto_retornado, quantidade)
-                                           VALUES (@Tipo, @Vendedor, @Codigo, @Qtd)",
-                                         new { Tipo = tipoStr, Vendedor = Session.CurrentUserId, Codigo = selecionado.codigo_barras, Qtd = qtdTroca }, tx);
+                            // CORREÇÃO DA HORA: Força o uso do DateTime.Now do C# em vez do UTC do SQLite
+                            conn.Execute(@"INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
+                                           VALUES (@Tipo, @DataHora, @Vendedor, @Codigo, @Qtd)",
+                                         new { Tipo = tipoStr, DataHora = DateTime.Now, Vendedor = Session.CurrentUserId, Codigo = selecionado.codigo_barras, Qtd = qtdTroca }, tx);
 
-                            conn.Execute("UPDATE tb_produtos SET quantidade = quantidade + @Qtd WHERE codigo_barras = @Codigo",
-                                         new { Qtd = qtdTroca, Codigo = selecionado.codigo_barras }, tx);
+                            // CORREÇÃO DO ESTOQUE: Usa a mesma lógica avançada das Vendas (reconhece codigo_geral e múltiplos códigos)
+                            conn.Execute(@"UPDATE tb_produtos 
+                                           SET quantidade = quantidade + @Qtd 
+                                           WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto))
+                                              OR (codigo_geral IS NULL AND id = @IdProduto)",
+                                         new { Qtd = qtdTroca, IdProduto = selecionado.id_produto }, tx);
                         }
 
                         tx.Commit();
@@ -541,8 +548,12 @@ namespace T_PACE
             {
                 FecharTelaBusca();
 
-                // MAGIA: Reaproveita a mesma função de ler o código de barras!
-                BiparProduto(produtoSelecionado.codigo_barras);
+                // Adiciona o código do produto ao lado do que já estiver no campo (ex: "5x")
+                txtBusca.Text += produtoSelecionado.codigo_barras;
+
+                // Joga o cursor piscante para o final do texto e devolve o foco
+                txtBusca.CaretIndex = txtBusca.Text.Length;
+                txtBusca.Focus();
             }
         }
 
@@ -1163,6 +1174,7 @@ namespace T_PACE
         public class ItemVendaTroca
         {
             public long id_venda { get; set; }
+            public int id_produto { get; set; } // <--- ADICIONE ESTA LINHA AQUI
             public string codigo_barras { get; set; }
             public string nome { get; set; }
             public decimal quantidade_comprada { get; set; }

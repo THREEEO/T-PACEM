@@ -122,6 +122,23 @@ export default {
             }
         }
 
+        if (path === "/api/app/trocas" && method === "POST") {
+            try {
+                const body = await request.json();
+                const stmts = [];
+                for (const t of body) {
+                    stmts.push(env.DB.prepare(`
+                        INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
+                        VALUES (?, ?, ?, ?, ?)
+                    `).bind(t.tipo_troca, t.data_troca, t.id_vendedor, t.produto_retornado, t.quantidade));
+                }
+                await env.DB.batch(stmts);
+                return new Response(JSON.stringify({ sucesso: true }), { status: 201, headers: corsHeaders });
+            } catch (error) {
+                return new Response(JSON.stringify({ erro: "Erro ao sincronizar trocas na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
+            }
+        }
+
         // =====================================================================
         // ROTAS DA WEB E DASHBOARD
         // =====================================================================
@@ -206,12 +223,10 @@ export default {
         if (method === "GET" && path === "/relatorios/trocas") {
             try {
                 const query = `
-            SELECT p.nome, iv.quantidade, v.data_hora, v.status
-            FROM tb_itens_venda iv
-            JOIN tb_vendas v ON iv.id_venda = v.id
-            JOIN tb_produtos p ON iv.id_produto = p.id
-            WHERE v.status = 'cancelado'
-            ORDER BY v.data_hora DESC
+            SELECT t.tipo_troca, t.data_troca, t.quantidade, p.nome
+            FROM tb_trocas t
+            LEFT JOIN tb_produtos p ON t.produto_retornado = p.codigo_barras
+            ORDER BY t.data_troca DESC
         `;
                 const res = await env.DB.prepare(query).all();
                 return new Response(JSON.stringify(res.results), { headers: corsHeaders });
@@ -455,8 +470,8 @@ export default {
                     httpMetadata: { contentType: file.type }
                 });
 
-                // ATENÇÃO: Troque este link pelo Public Access gerado no seu Bucket R2!
-                const urlPublica = `https://pub-c5ee40d961c6c73a7181839dec953784.r2.cloudflarestorage.com/tpace.r2.dev/${nomeArquivo}`;
+                // Link corrigido apontando diretamente para o Public Access do R2
+                const urlPublica = `https://pub-cef0af4ec14641d69ab30f7d560f9387.r2.dev/${nomeArquivo}`;
 
                 return new Response(JSON.stringify({ sucesso: true, url: urlPublica }), { status: 201, headers: corsHeaders });
             } catch (error) {
