@@ -10,9 +10,8 @@ namespace T_PACE
 {
     public partial class LoginWindow : Window
     {
-        // URL da rota POST do seu Cloudflare Worker que faz a autenticação
         private static readonly string apiLoginUrl = "https://tpace-api.whyguiih.workers.dev/api/web/login";
-        private const string VersaoAtualApp = "1.3.3"; // Controle a versão do seu app compilado aqui!
+        private const string VersaoAtualApp = "1.3.4";
         public LoginWindow()
         {
             InitializeComponent();
@@ -26,7 +25,7 @@ namespace T_PACE
             txtUsuario.Focus();
             txtUsuario.SelectAll();
 
-            VerificarAtualizacao(); // Roda em segundo plano sem travar a tela
+            VerificarAtualizacao();
         }
 
         private void BtnCancelar_Click(object sender, RoutedEventArgs e)
@@ -47,7 +46,6 @@ namespace T_PACE
                 return;
             }
 
-            // Desativa o botão enquanto a API do Cloudflare responde
             btnOk.IsEnabled = false;
             txtMensagem.Text = "Autenticando...";
 
@@ -72,8 +70,6 @@ namespace T_PACE
                             {
                                 conn.Open();
 
-                                // 1. NOVO: Sincroniza o usuário que veio da nuvem com o banco local
-                                // Assim o banco local sempre reconhece o ID do usuário (evita erro de Foreign Key)
                                 conn.Execute(@"
                                     INSERT INTO tb_usuarios (id, nome, nivel_acesso) 
                                     VALUES (@Id, @Nome, @NivelAcesso)
@@ -87,7 +83,6 @@ namespace T_PACE
                                         NivelAcesso = resultado.usuario.nivel_acesso
                                     });
 
-                                // 2. Registra os dados da sessão
                                 Session.CurrentUserId = resultado.usuario.id;
                                 Session.CurrentUserName = resultado.usuario.nome;
 
@@ -118,7 +113,6 @@ namespace T_PACE
             }
             catch (Exception)
             {
-                // NOVO: Se a internet cair, tenta autenticar com os dados gravados no banco local
                 if (FazerLoginLocal(usuario, senha))
                 {
                     DialogResult = true;
@@ -138,7 +132,6 @@ namespace T_PACE
                 using (var conn = new SqliteConnection(DatabaseConfig.ConnectionString))
                 {
                     conn.Open();
-                    // Busca se o usuário já fez login alguma vez na vida enquanto tinha internet
                     var userLocal = conn.QueryFirstOrDefault<UsuarioLogin>(
                         "SELECT id, nome, nivel_acesso FROM tb_usuarios WHERE nome = @Nome AND senha = @Senha",
                         new { Nome = usuario, Senha = senha });
@@ -168,10 +161,8 @@ namespace T_PACE
             {
                 using (var client = new HttpClient())
                 {
-                    // Faz a requisição de forma segura
                     var response = await client.GetAsync("https://tpace-api.whyguiih.workers.dev/api/app/versao");
 
-                    // Só continua se a API respondeu com sucesso (Ignora os 404 e 500)
                     if (response.IsSuccessStatusCode)
                     {
                         var jsonString = await response.Content.ReadAsStringAsync();
@@ -182,11 +173,9 @@ namespace T_PACE
 
                             if (!string.IsNullOrEmpty(versaoNuvem))
                             {
-                                // Converte os textos para o motor de versões do Windows
                                 Version vNuvem = new Version(versaoNuvem);
                                 Version vLocal = new Version(VersaoAtualApp);
 
-                                // MATEMÁTICA: O botão SÓ aparece se a versão da nuvem for ESTRITAMENTE MAIOR
                                 if (vNuvem > vLocal)
                                 {
                                     btnAtualizar.Visibility = Visibility.Visible;
@@ -200,7 +189,6 @@ namespace T_PACE
             }
             catch
             {
-                // Falha silenciosa: Sem internet, Cloudflare fora do ar, etc.
             }
         }
 
@@ -211,11 +199,9 @@ namespace T_PACE
 
             try
             {
-                // Muda o visual do botão para dar feedback ao usuário
                 btnAtualizar.Content = " Baixando atualização... ";
                 btnAtualizar.IsEnabled = false;
 
-                // 1. Caminhos ocultos para o download
                 string tempPasta = System.IO.Path.GetTempPath();
                 string zipPath = System.IO.Path.Combine(tempPasta, "tpace_update.zip");
                 string batPath = System.IO.Path.Combine(tempPasta, "atualizador.bat");
@@ -223,7 +209,6 @@ namespace T_PACE
                 string appPath = AppDomain.CurrentDomain.BaseDirectory;
                 string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
-                // 2. Baixa o arquivo ZIP silenciosamente
                 using (var client = new HttpClient())
                 {
                     var bytes = await client.GetByteArrayAsync(link);
@@ -232,7 +217,6 @@ namespace T_PACE
 
                 btnAtualizar.Content = " Instalando... ";
 
-                // 3. Cria o script "fantasma" que vai sobrescrever os arquivos
                 string script = $@"@echo off
 timeout /t 2 /nobreak > NUL
 powershell.exe -windowstyle hidden -Command ""Expand-Archive -Path '{zipPath}' -DestinationPath '{appPath}' -Force""
@@ -242,7 +226,6 @@ del ""%~f0""
 ";
                 System.IO.File.WriteAllText(batPath, script);
 
-                // 4. Inicia o script de forma oculta e fecha o T-PACE atual!
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = batPath,
@@ -261,9 +244,8 @@ del ""%~f0""
                 btnAtualizar.IsEnabled = true;
             }
         }
-    } // <-- FIM DA CLASSE LoginWindow
+    }
 
-    // As classes abaixo ficam FORA da LoginWindow, mas DENTRO do namespace T_PACE
     public class LoginResponse
     {
         public bool sucesso { get; set; }
@@ -283,4 +265,4 @@ del ""%~f0""
         public static string CurrentUserName { get; set; } = string.Empty;
         public static int CurrentSessaoCaixaId { get; set; } = 0;
     }
-} // <-- FIM DO NAMESPACE T_PACE
+}
