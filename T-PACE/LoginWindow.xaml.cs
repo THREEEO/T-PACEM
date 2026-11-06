@@ -11,7 +11,7 @@ namespace T_PACE
     public partial class LoginWindow : Window
     {
         private static readonly string apiLoginUrl = "https://tpace-api.whyguiih.workers.dev/api/web/login";
-        private const string VersaoAtualApp = "1.3.4";
+        private const string VersaoAtualApp = "1.3.7";
         public LoginWindow()
         {
             InitializeComponent();
