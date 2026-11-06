@@ -1,4 +1,4 @@
-﻿<Window x:Class="T_PACE.MainWindow"
+<Window x:Class="T_PACE.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PDV - Frente de Caixa" MinHeight="600"
@@ -7,6 +7,7 @@
         WindowState="Maximized"
         WindowStyle="None"
         ResizeMode="NoResize"
+        PreviewKeyDown="Window_PreviewKeyDown"
         FocusManager.FocusedElement="{Binding ElementName=txtBusca}">
 
     <Window.Resources>
@@ -95,6 +96,7 @@
                         <TextBlock x:Name="txtIniciaisUsuario" Text="US" Foreground="#F8F3FC" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock x:Name="txtNomeUsuario" Text="Operador" Foreground="#2A1143" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <Button x:Name="btnFecharMain" Content="✕" Width="36" Height="36" Margin="20,0,0,0" Background="#22D43D3D" Foreground="#D43D3D" FontSize="16" FontWeight="Black" Cursor="Hand" ToolTip="Fechar / Sair do Caixa" Click="BtnFecharMain_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -266,14 +268,17 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="CANCELAR ITEM" Foreground="#D43D3D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="CANCELAR ITEM" Foreground="#D43D3D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharCancelamento_Click"/>
+                    </Grid>
 
                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
                         <TextBlock Text="Bipe ou digite o código do item a ser cancelado:" Foreground="#5E3A7D" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" HorizontalAlignment="Center"/>
                         <TextBox x:Name="txtBuscaCancelamento" FontSize="24" FontWeight="Bold" Foreground="#2A1143" Padding="10,5" Background="#E6E0ED" BorderThickness="0"/>
                     </StackPanel>
 
-                    <TextBlock Grid.Row="2" Text="[ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                    <TextBlock Grid.Row="2" Text="[ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0" Cursor="Hand" MouseLeftButtonUp="BtnFecharCancelamento_Click"/>
                 </Grid>
             </Border>
         </Border>
@@ -290,7 +295,10 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="BUSCAR PRODUTO" Foreground="#5E3A7D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="BUSCAR PRODUTO" Foreground="#5E3A7D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharBusca_Click"/>
+                    </Grid>
                     <TextBox x:Name="txtBuscaNome" Grid.Row="1" FontSize="20" FontWeight="Bold" Foreground="#2A1143" Padding="10,8" Background="#E6E0ED" BorderThickness="0" Margin="0,0,0,15" TextChanged="txtBuscaNome_TextChanged" PreviewKeyDown="txtBuscaNome_PreviewKeyDown"/>
 
                     <ListBox x:Name="listaResultadosBusca" Grid.Row="2" Background="Transparent" BorderThickness="0" 
@@ -319,7 +327,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Grid.Row="3" Text="[ ↑↓ ] Navegar   [ ENTER ] Selecionar   [ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                    <TextBlock Grid.Row="3" Text="[ ↑↓ ] Navegar   [ ENTER ] Selecionar   [ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0" Cursor="Hand" MouseLeftButtonUp="BtnFecharBusca_Click"/>
                 </Grid>
             </Border>
         </Border>
@@ -336,20 +344,23 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="APLICAR DESCONTO" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="APLICAR DESCONTO" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharDesconto_Click"/>
+                    </Grid>
 
                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
                         <TextBlock Text="Valor (R$) ou Porcentagem (%):" Foreground="#5E3A7D" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" HorizontalAlignment="Center"/>
                         <TextBox x:Name="txtValorDesconto" FontSize="28" FontWeight="Bold" Foreground="#2A1143" Padding="10,5" Background="#E6E0ED" BorderThickness="0" TextAlignment="Center" PreviewKeyDown="txtValorDesconto_PreviewKeyDown"/>
                     </StackPanel>
 
-                    <TextBlock Grid.Row="2" Text="[ ESC ] Cancelar   [ ENTER ] Confirmar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                    <TextBlock Grid.Row="2" Text="[ ESC ] Cancelar   [ ENTER ] Confirmar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0" Cursor="Hand" MouseLeftButtonUp="BtnFecharDesconto_Click"/>
                 </Grid>
             </Border>
         </Border>
 
         <Border x:Name="OverlayPagamento" Grid.RowSpan="3" Background="#B21A0A2E" Visibility="Collapsed" Panel.ZIndex="100">
-            <Border Width="450" Height="420" Background="#F8F3FC" CornerRadius="12" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
+            <Border Width="520" MinHeight="520" MaxHeight="660" Background="#F8F3FC" CornerRadius="12" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
                 <Border.Effect>
                     <DropShadowEffect Color="#2A1143" Opacity="0.8" BlurRadius="50" ShadowDepth="10"/>
                 </Border.Effect>
@@ -361,16 +372,26 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="FINALIZAR VENDA" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
-
-                    <Grid Grid.Row="1" Margin="0,0,0,20">
-                        <TextBlock Text="TOTAL A PAGAR:" FontSize="18" FontWeight="Bold" Foreground="#5E3A7D" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="txtPagamentoTotal" Text="R$ 0,00" FontSize="28" FontWeight="Black" Foreground="#A45FCE" HorizontalAlignment="Right"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="FINALIZAR VENDA" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharPagamento_Click"/>
                     </Grid>
 
-                    <StackPanel Grid.Row="2" Margin="0,0,0,15">
+                    <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="TOTAL DA VENDA:" FontSize="15" FontWeight="Bold" Foreground="#5E3A7D" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txtPagamentoTotal" Text="R$ 0,00" FontSize="20" FontWeight="Black" Foreground="#2A1143" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid>
+                            <TextBlock Text="FALTA PAGAR:" FontSize="16" FontWeight="Bold" Foreground="#5E3A7D" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txtPagamentoRestante" Text="R$ 0,00" FontSize="24" FontWeight="Black" Foreground="#A45FCE" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Margin="0,0,0,12">
                         <TextBlock Text="Método de Pagamento:" Foreground="#5E3A7D" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5"/>
                         <ComboBox x:Name="cmbMetodoPagamento" FontSize="18" Padding="10,5" SelectedIndex="0" Foreground="#2A1143" FontWeight="Bold">
                             <ComboBoxItem Content="dinheiro"/>
@@ -380,17 +401,51 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <StackPanel Grid.Row="3" Margin="0,0,0,15">
-                        <TextBlock Text="Valor Recebido do Cliente (R$):" Foreground="#5E3A7D" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                        <TextBox x:Name="txtValorRecebido" FontSize="28" FontWeight="Bold" Foreground="#2A1143" Padding="10,5" Background="#E6E0ED" BorderThickness="0" TextAlignment="Right" PreviewKeyDown="txtValorRecebido_PreviewKeyDown" TextChanged="txtValorRecebido_TextChanged"/>
+                    <StackPanel Grid.Row="3" Margin="0,0,0,12">
+                        <TextBlock Text="Valor Recebido / Parcela (R$):" Foreground="#5E3A7D" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtValorRecebido" Grid.Column="0" FontSize="24" FontWeight="Bold" Foreground="#2A1143" Padding="10,5" Background="#E6E0ED" BorderThickness="0" TextAlignment="Right" Margin="0,0,10,0" PreviewKeyDown="txtValorRecebido_PreviewKeyDown" TextChanged="txtValorRecebido_TextChanged"/>
+                            <Button x:Name="btnAdicionarPagamento" Grid.Column="1" Content="+ DIVIDIR / ADD" Background="#5E3A7D" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,0" Cursor="Hand" ToolTip="Adicionar forma de pagamento parcial" Click="BtnAdicionarPagamento_Click"/>
+                        </Grid>
                     </StackPanel>
 
-                    <Grid Grid.Row="4" VerticalAlignment="Bottom" Margin="0,0,0,20">
+                    <Border Grid.Row="4" Background="#EDE6F5" CornerRadius="8" Padding="8" Margin="0,0,0,12" MinHeight="70" MaxHeight="130">
+                        <Grid>
+                            <TextBlock x:Name="txtSemPagamentos" Text="Nenhuma parcela adicionada (ou pressione ENTER para pagar tudo de uma vez)" Foreground="#885E3A7D" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                            <ListBox x:Name="listaPagamentos" Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="6,4" BorderBrush="#225E3A7D" BorderThickness="0,0,0,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding MetodoFormatado}" FontSize="14" FontWeight="Bold" Foreground="#2A1143" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Valor, StringFormat=R$ {0:N2}}" FontSize="14" FontWeight="Black" Foreground="#A45FCE" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <Button Grid.Column="2" Content="✕" Width="22" Height="22" Background="#22D43D3D" Foreground="#D43D3D" FontSize="11" FontWeight="Black" Cursor="Hand" Tag="{Binding}" Click="BtnRemoverPagamento_Click" ToolTip="Remover este pagamento"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="5" VerticalAlignment="Bottom" Margin="0,0,0,12">
                         <TextBlock Text="TROCO:" FontSize="18" FontWeight="Bold" Foreground="#D43D3D" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="txtTroco" Text="R$ 0,00" FontSize="26" FontWeight="Black" Foreground="#D43D3D" HorizontalAlignment="Right"/>
+                        <TextBlock x:Name="txtTroco" Text="R$ 0,00" FontSize="24" FontWeight="Black" Foreground="#D43D3D" HorizontalAlignment="Right"/>
                     </Grid>
 
-                    <TextBlock Grid.Row="5" Text="[ ↑ / ↓ ] Trocar Pagamento   [ ESC ] Voltar   [ ENTER ] Confirmar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <StackPanel Grid.Row="6">
+                        <Button x:Name="btnConfirmarPagamento" Content="CONFIRMAR PAGAMENTO  [ ENTER ]" Background="#A45FCE" Foreground="White" FontSize="16" FontWeight="Black" Padding="0,10" Margin="0,0,0,8" Cursor="Hand" Click="BtnConfirmarPagamento_Click"/>
+                        <TextBlock Text="[ ↑ / ↓ ] Trocar Pagamento   [ ESC ] Voltar" Foreground="#885E3A7D" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="BtnFecharPagamento_Click"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Border>
@@ -405,12 +460,15 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="FECHAR CAIXA" Foreground="#D43D3D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="FECHAR CAIXA" Foreground="#D43D3D" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharFechamento_Click"/>
+                    </Grid>
                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
                         <TextBlock Text="Valor Final na Gaveta (R$):" Foreground="#5E3A7D" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" HorizontalAlignment="Center"/>
                         <TextBox x:Name="txtValorFechamento" FontSize="28" FontWeight="Bold" Foreground="#2A1143" Padding="10,5" Background="#E6E0ED" BorderThickness="0" TextAlignment="Center" PreviewKeyDown="txtValorFechamento_PreviewKeyDown"/>
                     </StackPanel>
-                    <TextBlock Grid.Row="2" Text="[ ESC ] Cancelar   [ ENTER ] Confirmar Encerramento" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                    <TextBlock Grid.Row="2" Text="[ ESC ] Cancelar   [ ENTER ] Confirmar Encerramento" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,15,0,0" Cursor="Hand" MouseLeftButtonUp="BtnFecharFechamento_Click"/>
                 </Grid>
             </Border>
         </Border>
@@ -428,7 +486,10 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="TROCAS E DEVOLUÇÕES" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="TROCAS E DEVOLUÇÕES" Foreground="#A45FCE" FontSize="22" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button Content="✕" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#22D43D3D" Foreground="#D43D3D" FontSize="15" FontWeight="Black" Cursor="Hand" ToolTip="Fechar" Click="BtnFecharTroca_Click"/>
+                    </Grid>
 
                     <Grid Grid.Row="1" Margin="0,0,0,15">
                         <Grid.ColumnDefinitions>
@@ -488,7 +549,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="[ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                        <TextBlock Text="[ ESC ] Fechar" Foreground="#885E3A7D" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0" Cursor="Hand" MouseLeftButtonUp="BtnFecharTroca_Click"/>
                         <Button Content="CONFIRMAR OPERAÇÃO" Background="#A45FCE" Foreground="White" FontWeight="Black" Padding="15,10" Click="BtnConfirmarTroca_Click" Cursor="Hand">
                             <Button.Resources>
                                 <Style TargetType="Border">

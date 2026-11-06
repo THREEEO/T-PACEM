@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -13,6 +13,7 @@ namespace T_PACE
     {
         private ProdutoRepository _repositorio;
         public ObservableCollection<ItemCupom> Carrinho { get; set; }
+        public ObservableCollection<PagamentoParcial> PagamentosParciais { get; set; }
 
         private decimal _descontoManualVenda = 0m;
 
@@ -21,13 +22,6 @@ namespace T_PACE
             InitializeComponent();
             btnFinalizar.Click += (s, e) => AbrirTelaPagamento();
             txtBusca.KeyDown += TxtBusca_KeyDown;
-
-            Task.Run(async () =>
-            {
-                await SincronizacaoService.SincronizarProdutosAsync();
-                await SincronizacaoService.SincronizarVendasPendentesAsync();
-                await SincronizacaoService.SincronizarTrocasPendentesAsync();
-            });
 
             if (!string.IsNullOrEmpty(Session.CurrentUserName))
             {
@@ -48,12 +42,63 @@ namespace T_PACE
 
             _repositorio = new ProdutoRepository();
             Carrinho = new ObservableCollection<ItemCupom>();
+            PagamentosParciais = new ObservableCollection<PagamentoParcial>();
 
             listaCupom.ItemsSource = Carrinho;
-            txtBusca.KeyDown += TxtBusca_KeyDown;
+            listaPagamentos.ItemsSource = PagamentosParciais;
 
-            Task.Run(async () => await SincronizacaoService.SincronizarProdutosAsync());
+            Task.Run(async () =>
+            {
+                await SincronizacaoService.SincronizarVendasPendentesAsync();
+                await SincronizacaoService.SincronizarTrocasPendentesAsync();
+                await SincronizacaoService.SincronizarProdutosAsync();
+            });
         }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                if (OverlayCancelamento.Visibility == Visibility.Visible)
+                {
+                    FecharTelaCancelamento();
+                    e.Handled = true;
+                }
+                else if (OverlayBusca.Visibility == Visibility.Visible)
+                {
+                    FecharTelaBusca();
+                    e.Handled = true;
+                }
+                else if (OverlayDesconto.Visibility == Visibility.Visible)
+                {
+                    FecharTelaDesconto();
+                    e.Handled = true;
+                }
+                else if (OverlayPagamento.Visibility == Visibility.Visible)
+                {
+                    FecharTelaPagamento();
+                    e.Handled = true;
+                }
+                else if (OverlayFechamento.Visibility == Visibility.Visible)
+                {
+                    FecharTelaFechamento();
+                    e.Handled = true;
+                }
+                else if (OverlayTroca.Visibility == Visibility.Visible)
+                {
+                    FecharTelaTroca();
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void BtnFecharMain_Click(object sender, RoutedEventArgs e) => AbrirTelaFechamento();
+        private void BtnFecharCancelamento_Click(object sender, RoutedEventArgs e) => FecharTelaCancelamento();
+        private void BtnFecharBusca_Click(object sender, RoutedEventArgs e) => FecharTelaBusca();
+        private void BtnFecharDesconto_Click(object sender, RoutedEventArgs e) => FecharTelaDesconto();
+        private void BtnFecharPagamento_Click(object sender, RoutedEventArgs e) => FecharTelaPagamento();
+        private void BtnFecharFechamento_Click(object sender, RoutedEventArgs e) => FecharTelaFechamento();
+        private void BtnFecharTroca_Click(object sender, RoutedEventArgs e) => FecharTelaTroca();
 
         private async void TxtBusca_KeyDown(object sender, KeyEventArgs e)
         {
@@ -333,31 +378,52 @@ namespace T_PACE
             else if (e.Key == Key.Escape) FecharTelaTroca();
         }
 
-        private void BtnBuscarCupom_Click(object sender, RoutedEventArgs e)
+        private async void BtnBuscarCupom_Click(object sender, RoutedEventArgs e)
         {
             string cupom = txtBuscaCupomTroca.Text.Trim();
             if (string.IsNullOrEmpty(cupom)) return;
 
+            System.Collections.Generic.List<ItemVendaTroca> itens;
+
             using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseConfig.ConnectionString))
             {
-                var itens = conn.Query<ItemVendaTroca>(@"
+                itens = conn.Query<ItemVendaTroca>(@"
                     SELECT v.id as id_venda, p.id as id_produto, p.codigo_barras, p.nome, iv.quantidade as quantidade_comprada, iv.preco_unitario
                     FROM tb_vendas v
                     JOIN tb_itens_venda iv ON v.id = iv.id_venda
                     JOIN tb_produtos p ON iv.id_produto = p.id
                     WHERE v.id_cupom = @Cupom", new { Cupom = cupom }).ToList();
+            }
 
-                if (itens.Count == 0)
+            if (itens.Count == 0)
+            {
+                try
                 {
-                    MessageBox.Show("Cupom não encontrado ou não possui itens registrados.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    listaItensCupom.ItemsSource = null;
+                    using (var client = new System.Net.Http.HttpClient())
+                    {
+                        var resp = await client.GetStringAsync($"https://tpace-api.whyguiih.workers.dev/api/app/cupom?codigo={Uri.EscapeDataString(cupom)}");
+                        var opcoes = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        opcoes.Converters.Add(new DecimalConverter());
+                        var itensNuvem = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<ItemVendaTroca>>(resp, opcoes);
+                        if (itensNuvem != null && itensNuvem.Count > 0)
+                        {
+                            itens = itensNuvem;
+                        }
+                    }
                 }
-                else
-                {
-                    listaItensCupom.ItemsSource = itens;
-                    listaItensCupom.Focus();
-                    listaItensCupom.SelectedIndex = 0;
-                }
+                catch { }
+            }
+
+            if (itens.Count == 0)
+            {
+                MessageBox.Show("Cupom não encontrado ou não possui itens registrados.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+                listaItensCupom.ItemsSource = null;
+            }
+            else
+            {
+                listaItensCupom.ItemsSource = itens;
+                listaItensCupom.Focus();
+                listaItensCupom.SelectedIndex = 0;
             }
         }
 
@@ -400,15 +466,16 @@ namespace T_PACE
                             decimal valorItem = qtdTroca * selecionado.preco_unitario;
                             valorTotalDevolvido += valorItem;
 
-                            conn.Execute(@"INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
-                                           VALUES (@Tipo, @DataHora, @Vendedor, @Codigo, @Qtd)",
+                            conn.Execute(@"INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade, sincronizado)
+                                           VALUES (@Tipo, @DataHora, @Vendedor, @Codigo, @Qtd, 0)",
                                          new { Tipo = tipoStr, DataHora = DateTime.Now, Vendedor = Session.CurrentUserId, Codigo = selecionado.codigo_barras, Qtd = qtdTroca }, tx);
 
                             conn.Execute(@"UPDATE tb_produtos 
-                                           SET quantidade = quantidade + @Qtd 
-                                           WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto))
-                                              OR (codigo_geral IS NULL AND id = @IdProduto)",
-                                         new { Qtd = qtdTroca, IdProduto = selecionado.id_produto }, tx);
+                                           SET quantidade = COALESCE(quantidade, 0) + @Qtd 
+                                           WHERE id = @IdProduto
+                                              OR codigo_barras = @Codigo
+                                              OR (codigo_geral IS NOT NULL AND codigo_geral != 0 AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto OR codigo_barras = @Codigo LIMIT 1))",
+                                         new { Qtd = qtdTroca, IdProduto = selecionado.id_produto, Codigo = selecionado.codigo_barras }, tx);
                         }
 
                         tx.Commit();
@@ -419,11 +486,11 @@ namespace T_PACE
                 {
                     _descontoManualVenda += valorTotalDevolvido;
                     AtualizarTotais();
-                    MessageBox.Show($"Troca registrada com sucesso.\n\nDesconto de R$ {valorTotalDevolvido:N2} aplicado.", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"Troca registrada com sucesso.\nEstoque atualizado e desconto de R$ {valorTotalDevolvido:N2} aplicado.", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show($"Devolução registrada com sucesso.\n\nValor a estornar: R$ {valorTotalDevolvido:N2}", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"Devolução registrada com sucesso.\nEstoque atualizado. Valor a estornar: R$ {valorTotalDevolvido:N2}", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
                 FecharTelaTroca();
@@ -621,6 +688,14 @@ namespace T_PACE
 
         }
 
+        private decimal CalcularTotalAPagar()
+        {
+            decimal subtotalBruto = Carrinho.Sum(i => i.PrecoUnitario * i.Quantidade);
+            decimal descontosDePromocoes = Carrinho.Sum(i => i.DescontoUnitario * i.Quantidade);
+            decimal total = subtotalBruto - (descontosDePromocoes + _descontoManualVenda);
+            return total < 0 ? 0m : total;
+        }
+
         private void AbrirTelaPagamento()
         {
             if (Carrinho.Count == 0)
@@ -629,18 +704,54 @@ namespace T_PACE
                 return;
             }
 
-            decimal subtotalBruto = Carrinho.Sum(i => i.PrecoUnitario * i.Quantidade);
-            decimal descontosDePromocoes = Carrinho.Sum(i => i.DescontoUnitario * i.Quantidade);
-            decimal totalAPagar = subtotalBruto - (descontosDePromocoes + _descontoManualVenda);
+            PagamentosParciais.Clear();
+            decimal totalAPagar = CalcularTotalAPagar();
 
             txtPagamentoTotal.Text = $"R$ {totalAPagar:N2}";
-            txtValorRecebido.Text = totalAPagar.ToString("N2");
-            txtTroco.Text = "R$ 0,00";
+            AtualizarEstadoPagamento(preencherRestante: true);
 
             OverlayPagamento.Visibility = Visibility.Visible;
             cmbMetodoPagamento.SelectedIndex = 0;
             txtValorRecebido.SelectAll();
             txtValorRecebido.Focus();
+        }
+
+        private void AtualizarEstadoPagamento(bool preencherRestante)
+        {
+            decimal totalAPagar = CalcularTotalAPagar();
+            decimal totalJaLancado = PagamentosParciais.Sum(p => p.Valor);
+            decimal restante = Math.Max(0m, totalAPagar - totalJaLancado);
+            decimal trocoAcumulado = PagamentosParciais.Sum(p => p.Troco);
+
+            txtPagamentoTotal.Text = $"R$ {totalAPagar:N2}";
+            txtPagamentoRestante.Text = $"R$ {restante:N2}";
+            txtSemPagamentos.Visibility = PagamentosParciais.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (preencherRestante)
+            {
+                txtValorRecebido.Text = restante.ToString("N2");
+            }
+
+            AtualizarTrocoPreview();
+        }
+
+        private void AtualizarTrocoPreview()
+        {
+            decimal totalAPagar = CalcularTotalAPagar();
+            decimal totalJaLancado = PagamentosParciais.Sum(p => p.Valor);
+            decimal restante = Math.Max(0m, totalAPagar - totalJaLancado);
+            decimal trocoAcumulado = PagamentosParciais.Sum(p => p.Troco);
+
+            string entrada = txtValorRecebido.Text.Trim().Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+            if (decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorDigitado))
+            {
+                decimal trocoAtual = restante > 0 && valorDigitado > restante ? valorDigitado - restante : 0m;
+                txtTroco.Text = $"R$ {(trocoAcumulado + trocoAtual):N2}";
+            }
+            else
+            {
+                txtTroco.Text = $"R$ {trocoAcumulado:N2}";
+            }
         }
 
         private void FecharTelaPagamento()
@@ -651,21 +762,67 @@ namespace T_PACE
 
         private void txtValorRecebido_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            decimal subtotalBruto = Carrinho.Sum(i => i.PrecoUnitario * i.Quantidade);
-            decimal descontosDePromocoes = Carrinho.Sum(i => i.DescontoUnitario * i.Quantidade);
-            decimal totalAPagar = subtotalBruto - (descontosDePromocoes + _descontoManualVenda);
+            if (txtTroco == null) return;
+            AtualizarTrocoPreview();
+        }
+
+        private void BtnAdicionarPagamento_Click(object sender, RoutedEventArgs e)
+        {
+            AdicionarParcelaPagamento();
+        }
+
+        private void BtnRemoverPagamento_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is PagamentoParcial item)
+            {
+                PagamentosParciais.Remove(item);
+                AtualizarEstadoPagamento(preencherRestante: true);
+                txtValorRecebido.SelectAll();
+                txtValorRecebido.Focus();
+            }
+        }
+
+        private void BtnConfirmarPagamento_Click(object sender, RoutedEventArgs e)
+        {
+            ProcessarVenda();
+        }
+
+        private bool AdicionarParcelaPagamento()
+        {
+            decimal totalAPagar = CalcularTotalAPagar();
+            decimal totalJaLancado = PagamentosParciais.Sum(p => p.Valor);
+            decimal restante = Math.Max(0m, totalAPagar - totalJaLancado);
+
+            if (restante <= 0m)
+            {
+                return true;
+            }
 
             string entrada = txtValorRecebido.Text.Trim().Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+            if (!decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorDigitado) || valorDigitado <= 0m)
+            {
+                MessageBox.Show("Informe um valor válido maior que zero.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+                txtValorRecebido.SelectAll();
+                txtValorRecebido.Focus();
+                return false;
+            }
 
-            if (decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorRecebido))
+            string metodoSelecionado = ((System.Windows.Controls.ComboBoxItem)cmbMetodoPagamento.SelectedItem)?.Content?.ToString() ?? "dinheiro";
+            decimal valorAbatido = valorDigitado > restante ? restante : valorDigitado;
+            decimal trocoGerado = valorDigitado > restante ? valorDigitado - restante : 0m;
+
+            PagamentosParciais.Add(new PagamentoParcial
             {
-                decimal troco = valorRecebido - totalAPagar;
-                txtTroco.Text = troco < 0 ? "R$ 0,00" : $"R$ {troco:N2}";
-            }
-            else
-            {
-                txtTroco.Text = "R$ 0,00";
-            }
+                Metodo = metodoSelecionado,
+                Valor = valorAbatido,
+                ValorRecebido = valorDigitado,
+                Troco = trocoGerado
+            });
+
+            AtualizarEstadoPagamento(preencherRestante: true);
+            txtValorRecebido.SelectAll();
+            txtValorRecebido.Focus();
+            return true;
         }
 
         private void txtValorRecebido_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -705,19 +862,53 @@ namespace T_PACE
             decimal subtotalBruto = Carrinho.Sum(i => i.PrecoUnitario * i.Quantidade);
             decimal descontosDePromocoes = Carrinho.Sum(i => i.DescontoUnitario * i.Quantidade);
             decimal descontoTotal = descontosDePromocoes + _descontoManualVenda;
-            decimal totalAPagar = subtotalBruto - descontoTotal;
+            decimal totalAPagar = CalcularTotalAPagar();
 
-            string entrada = txtValorRecebido.Text.Trim().Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
-            decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorRecebido);
-            if (valorRecebido < totalAPagar)
+            decimal totalJaLancado = PagamentosParciais.Sum(p => p.Valor);
+            decimal restante = Math.Max(0m, totalAPagar - totalJaLancado);
+
+            if (restante > 0m)
             {
-                MessageBox.Show("O valor recebido é menor que o total da venda!", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtValorRecebido.SelectAll();
-                return;
+                string entrada = txtValorRecebido.Text.Trim().Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+                decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorDigitado);
+
+                if (valorDigitado <= 0m)
+                {
+                    MessageBox.Show($"Ainda falta pagar R$ {restante:N2}. Digite o valor recebido para concluir ou dividir o pagamento.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    txtValorRecebido.SelectAll();
+                    txtValorRecebido.Focus();
+                    return;
+                }
+
+                if (valorDigitado < restante)
+                {
+                    // Adiciona automaticamente como pagamento parcial (dividido) e aguarda o restante
+                    AdicionarParcelaPagamento();
+                    return;
+                }
+
+                // Valor digitado cobre o restante: adiciona a parcela final e conclui a venda
+                if (!AdicionarParcelaPagamento())
+                {
+                    return;
+                }
             }
 
-            decimal trocoFinal = valorRecebido - totalAPagar;
-            string metodoSelecionado = ((System.Windows.Controls.ComboBoxItem)cmbMetodoPagamento.SelectedItem)?.Content?.ToString() ?? "dinheiro";
+            if (PagamentosParciais.Count == 0)
+            {
+                string metodoPadrao = ((System.Windows.Controls.ComboBoxItem)cmbMetodoPagamento.SelectedItem)?.Content?.ToString() ?? "dinheiro";
+                PagamentosParciais.Add(new PagamentoParcial
+                {
+                    Metodo = metodoPadrao,
+                    Valor = totalAPagar,
+                    ValorRecebido = totalAPagar,
+                    Troco = 0m
+                });
+            }
+
+            decimal valorTotalRecebido = PagamentosParciais.Sum(p => p.ValorRecebido);
+            decimal trocoFinal = PagamentosParciais.Sum(p => p.Troco);
+            var listaPagamentosFinal = PagamentosParciais.ToList();
 
             string codigoUnicoCupom = DateTime.Now.ToString("yyMMddHHmmssff");
 
@@ -750,9 +941,9 @@ namespace T_PACE
                                                 VALUES (@IdVenda, @IdProduto, @Quantidade, @PrecoUnitario, @Subtotal);
                                                 
                                                 UPDATE tb_produtos 
-                                                SET quantidade = quantidade - @Quantidade 
-                                                WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto))
-                                                   OR (codigo_geral IS NULL AND id = @IdProduto);";
+                                                SET quantidade = COALESCE(quantidade, 0) - @Quantidade 
+                                                WHERE id = @IdProduto
+                                                   OR (codigo_geral IS NOT NULL AND codigo_geral != 0 AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto));";
 
                                 connection.Execute(sqlItem, new
                                 {
@@ -764,21 +955,22 @@ namespace T_PACE
                                 }, transaction);
                             }
 
-
                             var sqlPagamento = @"INSERT INTO tb_pagamentos (id_venda, metodo, valor)
                                                  VALUES (@IdVenda, @Metodo, @Valor);";
 
-                            connection.Execute(sqlPagamento, new
+                            foreach (var pag in listaPagamentosFinal)
                             {
-                                IdVenda = idVenda,
-                                Metodo = metodoSelecionado,
-                                Valor = totalAPagar
-                            }, transaction);
-
+                                connection.Execute(sqlPagamento, new
+                                {
+                                    IdVenda = idVenda,
+                                    Metodo = pag.Metodo,
+                                    Valor = pag.Valor
+                                }, transaction);
+                            }
 
                             transaction.Commit();
 
-                            ImprimirRecibo(idVenda, codigoUnicoCupom, Carrinho.ToList(), subtotalBruto, descontoTotal, totalAPagar, metodoSelecionado, valorRecebido, trocoFinal);
+                            ImprimirRecibo(idVenda, codigoUnicoCupom, Carrinho.ToList(), subtotalBruto, descontoTotal, totalAPagar, listaPagamentosFinal, valorTotalRecebido, trocoFinal);
 
                             Task.Run(async () => await SincronizacaoService.SincronizarVendasPendentesAsync());
                         }
@@ -791,6 +983,7 @@ namespace T_PACE
                 }
 
                 Carrinho.Clear();
+                PagamentosParciais.Clear();
                 _descontoManualVenda = 0m;
                 txtUltimoNome.Text = "Caixa Livre";
                 txtUltimoDetalhes.Text = " ";
@@ -880,7 +1073,7 @@ namespace T_PACE
             this.Close();
         }
 
-        private void ImprimirRecibo(long idVenda, string codigoUnicoCupom, System.Collections.Generic.List<ItemCupom> itens, decimal subtotal, decimal desconto, decimal total, string metodoPagamento, decimal valorRecebido, decimal troco)
+        private void ImprimirRecibo(long idVenda, string codigoUnicoCupom, System.Collections.Generic.List<ItemCupom> itens, decimal subtotal, decimal desconto, decimal total, System.Collections.Generic.List<PagamentoParcial> pagamentos, decimal valorRecebido, decimal troco)
         {
             try
             {
@@ -965,7 +1158,10 @@ namespace T_PACE
 
                 var sbPagamento = new System.Text.StringBuilder();
                 sbPagamento.AppendLine(AlinharLinha("FORMA PAGAMENTO", "VALOR PAGO R$", colunas));
-                sbPagamento.AppendLine(AlinharLinha(metodoPagamento.ToUpper(), valorRecebido.ToString("N2"), colunas));
+                foreach (var pag in pagamentos)
+                {
+                    sbPagamento.AppendLine(AlinharLinha(pag.Metodo.ToUpper(), pag.ValorRecebido.ToString("N2"), colunas));
+                }
                 sbPagamento.AppendLine(AlinharLinha("Troco R$", troco.ToString("N2"), colunas));
                 sbPagamento.AppendLine(new string('-', colunas));
                 doc.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run(sbPagamento.ToString())) { FontSize = 11, Margin = new Thickness(0), LineHeight = 16 });
@@ -1071,6 +1267,15 @@ namespace T_PACE
             public string nome { get; set; }
             public decimal quantidade_comprada { get; set; }
             public decimal preco_unitario { get; set; }
+        }
+
+        public class PagamentoParcial
+        {
+            public string Metodo { get; set; } = string.Empty;
+            public decimal Valor { get; set; }
+            public decimal ValorRecebido { get; set; }
+            public decimal Troco { get; set; }
+            public string MetodoFormatado => Metodo.ToUpper();
         }
 
         private void Rodape_F2_Click(object sender, MouseButtonEventArgs e) => AbrirTelaPagamento();

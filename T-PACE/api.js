@@ -60,9 +60,9 @@ export default {
                     `).bind(cloudVendaId, item.id_produto, item.quantidade, item.preco_unitario, item.subtotal));
           stmts.push(env.DB.prepare(`
                         UPDATE tb_produtos 
-                        SET quantidade = quantidade - ? 
-                        WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = ?))
-                           OR (codigo_geral IS NULL AND id = ?)
+                        SET quantidade = COALESCE(quantidade, 0) - ? 
+                        WHERE id = ?
+                           OR (codigo_geral IS NOT NULL AND codigo_geral != '' AND codigo_geral != 0 AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = ?))
                     `).bind(item.quantidade, item.id_produto, item.id_produto));
         }
         for (const pag of body.pagamentos) {
@@ -125,11 +125,33 @@ export default {
                         INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
                         VALUES (?, ?, ?, ?, ?)
                     `).bind(t.tipo_troca, t.data_troca, t.id_vendedor, t.produto_retornado, t.quantidade));
+          stmts.push(env.DB.prepare(`
+                        UPDATE tb_produtos 
+                        SET quantidade = COALESCE(quantidade, 0) + ? 
+                        WHERE codigo_barras = ?
+                           OR (codigo_geral IS NOT NULL AND codigo_geral != '' AND codigo_geral != 0 AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE codigo_barras = ? LIMIT 1))
+                    `).bind(t.quantidade, t.produto_retornado, t.produto_retornado));
         }
         await env.DB.batch(stmts);
         return new Response(JSON.stringify({ sucesso: true }), { status: 201, headers: corsHeaders });
       } catch (error) {
         return new Response(JSON.stringify({ erro: "Erro ao sincronizar trocas na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (path === "/api/app/cupom" && method === "GET") {
+      try {
+        const cupom = url.searchParams.get("codigo") || "";
+        const { results } = await env.DB.prepare(`
+          SELECT v.id as id_venda, p.id as id_produto, p.codigo_barras, p.nome, iv.quantidade as quantidade_comprada, iv.preco_unitario
+          FROM tb_vendas v
+          JOIN tb_itens_venda iv ON v.id = iv.id_venda
+          JOIN tb_produtos p ON iv.id_produto = p.id
+          WHERE v.id_cupom = ?
+        `).bind(cupom).all();
+        return new Response(JSON.stringify(results), { status: 200, headers: corsHeaders });
+      } catch (error) {
+        return new Response(JSON.stringify({ erro: "Erro ao buscar cupom.", detalhe: error.message }), { status: 500, headers: corsHeaders });
       }
     }
 

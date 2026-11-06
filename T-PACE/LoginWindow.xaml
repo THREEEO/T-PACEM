@@ -100,6 +100,11 @@
                     </StackPanel>
                 </Border>
 
+                <Button x:Name="btnFecharJanela" Grid.Column="1" Content="✕" Width="36" Height="36"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,15,15,0" Panel.ZIndex="10"
+                        Style="{StaticResource BtnModerno}" Background="#FEE2E2" Foreground="#DC2626"
+                        FontSize="16" FontWeight="Black" ToolTip="Fechar" Click="BtnCancelar_Click" />
+
                 <Grid Grid.Column="1" Margin="40">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
