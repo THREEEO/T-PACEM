@@ -36,102 +36,102 @@ export default {
     }
 
     if (path === "/api/app/vendas" && method === "POST") {
-        try {
-            const body = await request.json();
-            const stmts = [];
-            const resVenda = await env.DB.prepare(`
+      try {
+        const body = await request.json();
+        const stmts = [];
+        const resVenda = await env.DB.prepare(`
                     INSERT INTO tb_vendas (id_sessao_caixa, id_cliente, data_hora, subtotal, desconto, total, status, id_cupom)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `).bind(
-                    body.id_sessao_caixa, 
-                    body.id_cliente, 
-                    body.data_hora, 
-                    body.subtotal, 
-                    body.desconto, 
-                    body.total, 
-                    body.status, 
-                    body.id_cupom
-                ).run();
-            const cloudVendaId = resVenda.meta.last_row_id;
-            for (const item of body.itens) {
-                    stmts.push(env.DB.prepare(`
+          body.id_sessao_caixa,
+          body.id_cliente,
+          body.data_hora,
+          body.subtotal,
+          body.desconto,
+          body.total,
+          body.status,
+          body.id_cupom
+        ).run();
+        const cloudVendaId = resVenda.meta.last_row_id;
+        for (const item of body.itens) {
+          stmts.push(env.DB.prepare(`
                         INSERT INTO tb_itens_venda (id_venda, id_produto, quantidade, preco_unitario, subtotal)
                         VALUES (?, ?, ?, ?, ?)
                     `).bind(cloudVendaId, item.id_produto, item.quantidade, item.preco_unitario, item.subtotal));
-                    stmts.push(env.DB.prepare(`
+          stmts.push(env.DB.prepare(`
                         UPDATE tb_produtos 
                         SET quantidade = quantidade - ? 
                         WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = ?))
                            OR (codigo_geral IS NULL AND id = ?)
                     `).bind(item.quantidade, item.id_produto, item.id_produto));
-                }
-            for (const pag of body.pagamentos) {
-                stmts.push(env.DB.prepare(`
+        }
+        for (const pag of body.pagamentos) {
+          stmts.push(env.DB.prepare(`
                     INSERT INTO tb_pagamentos (id_venda, metodo, valor)
                     VALUES (?, ?, ?)
                 `).bind(cloudVendaId, pag.metodo, pag.valor));
-            }
-            await env.DB.batch(stmts);
-            return new Response(JSON.stringify({ sucesso: true, id_gerado: cloudVendaId }), { status: 201, headers: corsHeaders });
-        } catch (error) {
-            return new Response(JSON.stringify({ erro: "Erro ao sincronizar venda na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
         }
+        await env.DB.batch(stmts);
+        return new Response(JSON.stringify({ sucesso: true, id_gerado: cloudVendaId }), { status: 201, headers: corsHeaders });
+      } catch (error) {
+        return new Response(JSON.stringify({ erro: "Erro ao sincronizar venda na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (path === "/api/app/sessoes" && method === "POST") {
-        try {
-            const body = await request.json();
-            const stmts = [];
-            for (const s of body) {
-                stmts.push(env.DB.prepare(`
+      try {
+        const body = await request.json();
+        const stmts = [];
+        for (const s of body) {
+          stmts.push(env.DB.prepare(`
                     INSERT INTO tb_sessao_caixa (id_caixa, id_usuario, data_abertura, valor_fundo_troco, data_fechamento, status, valor_fechamento)
                     SELECT ?, ?, ?, ?, ?, ?, ?
                     WHERE NOT EXISTS (
                         SELECT 1 FROM tb_sessao_caixa WHERE data_abertura = ?
                     )
                 `).bind(s.id_caixa, s.id_usuario, s.data_abertura, s.valor_fundo_troco, s.data_fechamento, s.status, s.valor_fechamento, s.data_abertura));
-                stmts.push(env.DB.prepare(`
+          stmts.push(env.DB.prepare(`
                     UPDATE tb_sessao_caixa
                     SET data_fechamento = ?, status = ?, valor_fechamento = ?
                     WHERE data_abertura = ?
                 `).bind(s.data_fechamento, s.status, s.valor_fechamento, s.data_abertura));
-            }
-            await env.DB.batch(stmts);
-            return new Response(JSON.stringify({ sucesso: true }), { status: 200, headers: corsHeaders });
-        } catch (error) {
-            return new Response(JSON.stringify({ erro: "Erro ao sincronizar sessões.", detalhe: error.message }), { status: 500, headers: corsHeaders });
         }
+        await env.DB.batch(stmts);
+        return new Response(JSON.stringify({ sucesso: true }), { status: 200, headers: corsHeaders });
+      } catch (error) {
+        return new Response(JSON.stringify({ erro: "Erro ao sincronizar sessões.", detalhe: error.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (path === "/api/app/versao" && method === "GET") {
-        try {
-            const { results } = await env.DB.prepare("SELECT versao, link_download FROM tb_versao ORDER BY id DESC LIMIT 1").all();
-            if (results.length > 0) {
-                return new Response(JSON.stringify(results[0]), { status: 200, headers: corsHeaders });
-            } else {
-                return new Response(JSON.stringify({ erro: "Nenhuma versão encontrada" }), { status: 404, headers: corsHeaders });
-            }
-        } catch (error) {
-            return new Response(JSON.stringify({ erro: "Erro ao buscar versão" }), { status: 500, headers: corsHeaders });
+      try {
+        const { results } = await env.DB.prepare("SELECT versao, link_download FROM tb_versao ORDER BY id DESC LIMIT 1").all();
+        if (results.length > 0) {
+          return new Response(JSON.stringify(results[0]), { status: 200, headers: corsHeaders });
+        } else {
+          return new Response(JSON.stringify({ erro: "Nenhuma versão encontrada" }), { status: 404, headers: corsHeaders });
         }
+      } catch (error) {
+        return new Response(JSON.stringify({ erro: "Erro ao buscar versão" }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (path === "/api/app/trocas" && method === "POST") {
-            try {
-                const body = await request.json();
-                const stmts = [];
-                for (const t of body) {
-                    stmts.push(env.DB.prepare(`
+      try {
+        const body = await request.json();
+        const stmts = [];
+        for (const t of body) {
+          stmts.push(env.DB.prepare(`
                         INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
                         VALUES (?, ?, ?, ?, ?)
                     `).bind(t.tipo_troca, t.data_troca, t.id_vendedor, t.produto_retornado, t.quantidade));
-                }
-                await env.DB.batch(stmts);
-                return new Response(JSON.stringify({ sucesso: true }), { status: 201, headers: corsHeaders });
-            } catch (error) {
-                return new Response(JSON.stringify({ erro: "Erro ao sincronizar trocas na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
-            }
         }
+        await env.DB.batch(stmts);
+        return new Response(JSON.stringify({ sucesso: true }), { status: 201, headers: corsHeaders });
+      } catch (error) {
+        return new Response(JSON.stringify({ erro: "Erro ao sincronizar trocas na nuvem.", detalhe: error.message }), { status: 500, headers: corsHeaders });
+      }
+    }
 
     if (path === "/api/web/login" && method === "POST") {
       try {
@@ -190,8 +190,8 @@ export default {
         const res = await env.DB.prepare(query).all();
         return new Response(JSON.stringify(res.results), { headers: corsHeaders });
       } catch (e) {
-         return new Response(JSON.stringify({erro: e.message}), { status: 500, headers: corsHeaders });
-       }
+        return new Response(JSON.stringify({ erro: e.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (method === "GET" && path === "/relatorios/encalhados") {
@@ -207,8 +207,8 @@ export default {
         const res = await env.DB.prepare(query).all();
         return new Response(JSON.stringify(res.results), { headers: corsHeaders });
       } catch (e) {
-         return new Response(JSON.stringify({erro: e.message}), { status: 500, headers: corsHeaders });
-       }
+        return new Response(JSON.stringify({ erro: e.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (method === "GET" && path === "/relatorios/trocas") {
@@ -222,8 +222,8 @@ export default {
         const res = await env.DB.prepare(query).all();
         return new Response(JSON.stringify(res.results), { headers: corsHeaders });
       } catch (e) {
-         return new Response(JSON.stringify({erro: e.message}), { status: 500, headers: corsHeaders });
-       }
+        return new Response(JSON.stringify({ erro: e.message }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (method === "GET" && path === "/relatorios/desequilibrados") {
@@ -237,17 +237,17 @@ export default {
         const { results } = await env.DB.prepare(query).all();
 
         const desequilibrados = results.map(item => {
-            const quant = item.quantidade || 0;
-            const min = item.quantidade_minima || 10;
-            const isExcesso = quant >= (min * 2);
+          const quant = item.quantidade || 0;
+          const min = item.quantidade_minima || 10;
+          const isExcesso = quant >= (min * 2);
 
-            return {
-                nome: item.nome,
-                quantidade: quant,
-                media: min,
-                acao: isExcesso ? 'Promoção (Excesso)' : 'Repor (Escassez)',
-                cor: isExcesso ? 'alerta' : 'alerta-baixo'
-            };
+          return {
+            nome: item.nome,
+            quantidade: quant,
+            media: min,
+            acao: isExcesso ? 'Promoção (Excesso)' : 'Repor (Escassez)',
+            cor: isExcesso ? 'alerta' : 'alerta-baixo'
+          };
         });
         return new Response(JSON.stringify(desequilibrados), { status: 200, headers: corsHeaders });
       } catch (e) {
@@ -288,9 +288,9 @@ export default {
         `;
         const resDetalhes = await env.DB.prepare(queryDetalhes).bind(inicio, fim).all();
         return new Response(JSON.stringify({
-            grafico: resGrafico.results,
-            detalhes: resDetalhes.results,
-            periodo: { inicio, fim }
+          grafico: resGrafico.results,
+          detalhes: resDetalhes.results,
+          periodo: { inicio, fim }
         }), { status: 200, headers: corsHeaders });
       } catch (e) {
         return new Response(JSON.stringify({ erro: e.message }), { status: 500, headers: corsHeaders });
@@ -352,10 +352,60 @@ export default {
 
     if (path === "/api/web/produtos" && method === "GET") {
       try {
+        // Se a tela de estoque pedir uma página específica (?pagina=1)
+        if (url.searchParams.has("pagina")) {
+          const pagina = Math.max(1, parseInt(url.searchParams.get("pagina")) || 1);
+          const limite = Math.max(1, parseInt(url.searchParams.get("limite")) || 25);
+          const busca = (url.searchParams.get("busca") || "").trim().toLowerCase();
+          const offset = (pagina - 1) * limite;
+          const termoLike = `%${busca}%`;
+
+          // 1. Conta quantos produtos (grupos únicos) existem no total para criar os botões de página
+          const sqlTotal = `
+            SELECT COUNT(DISTINCT COALESCE(NULLIF(codigo_geral, ''), 'id_' || id)) AS total
+            FROM tb_produtos
+            WHERE (? = '' OR LOWER(nome) LIKE ? OR LOWER(codigo_barras) LIKE ? OR LOWER(codigo_geral) LIKE ?)
+          `;
+          const resTotal = await env.DB.prepare(sqlTotal)
+            .bind(busca, termoLike, termoLike, termoLike)
+            .first();
+
+          const totalProdutos = resTotal?.total || 0;
+          const totalPaginas = Math.ceil(totalProdutos / limite) || 1;
+
+          // 2. Puxa APENAS os 25 produtos (grupos) da página solicitada, do mais novo pro mais velho
+          const sqlPaginado = `
+            WITH GruposPaginados AS (
+              SELECT COALESCE(NULLIF(codigo_geral, ''), 'id_' || id) AS chave_grupo,
+                     MAX(id) AS maior_id
+              FROM tb_produtos
+              WHERE (? = '' OR LOWER(nome) LIKE ? OR LOWER(codigo_barras) LIKE ? OR LOWER(codigo_geral) LIKE ?)
+              GROUP BY chave_grupo
+              ORDER BY maior_id DESC
+              LIMIT ? OFFSET ?
+            )
+            SELECT p.*
+            FROM tb_produtos p
+            JOIN GruposPaginados g ON COALESCE(NULLIF(p.codigo_geral, ''), 'id_' || p.id) = g.chave_grupo
+            ORDER BY g.maior_id DESC, p.id DESC
+          `;
+          const { results } = await env.DB.prepare(sqlPaginado)
+            .bind(busca, termoLike, termoLike, termoLike, limite, offset)
+            .all();
+
+          return new Response(JSON.stringify({
+            produtos: results,
+            totalProdutos,
+            totalPaginas,
+            paginaAtual: pagina
+          }), { status: 200, headers: corsHeaders });
+        }
+
+        // Comportamento padrão antigo caso outra parte do sistema chame sem paginação
         const { results } = await env.DB.prepare("SELECT * FROM tb_produtos").all();
         return new Response(JSON.stringify(results), { status: 200, headers: corsHeaders });
       } catch (error) {
-        return new Response(JSON.stringify({ erro: "Erro ao carregar produtos." }), { status: 500, headers: corsHeaders });
+        return new Response(JSON.stringify({ erro: "Erro ao carregar produtos.", detalhe: error.message }), { status: 500, headers: corsHeaders });
       }
     }
 
@@ -369,20 +419,20 @@ export default {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
         `);
         await stmt.bind(
-          body.nome || null, 
-          body.codigo_barras || null, 
-          body.preco_venda || 0, 
-          body.quantidade || 0, 
-          body.quantidade_minima || 0, 
+          body.nome || null,
+          body.codigo_barras || null,
+          body.preco_venda || 0,
+          body.quantidade || 0,
+          body.quantidade_minima || 0,
           body.unidade_venda || 'Un',
-          body.custo || null, 
-          body.cest || null, 
-          body.aliquotas_imposto || null, 
-          body.ncm || null, 
-          body.valor_promocional || null, 
-          body.em_promocao || 0, 
-          body.lote || null, 
-          body.validade || null, 
+          body.custo || null,
+          body.cest || null,
+          body.aliquotas_imposto || null,
+          body.ncm || null,
+          body.valor_promocional || null,
+          body.em_promocao || 0,
+          body.lote || null,
+          body.validade || null,
           body.foto || null,
           body.codigo_geral || null
         ).run();
@@ -404,21 +454,21 @@ export default {
           WHERE id = ?
         `);
         await stmt.bind(
-          body.nome || null, 
-          body.codigo_barras || null, 
-          body.preco_venda || 0, 
-          body.quantidade || 0, 
-          body.quantidade_minima || 0, 
+          body.nome || null,
+          body.codigo_barras || null,
+          body.preco_venda || 0,
+          body.quantidade || 0,
+          body.quantidade_minima || 0,
           body.unidade_venda || 'Un',
-          body.custo || null, 
-          body.cest || null, 
-          body.aliquotas_imposto || null, 
-          body.ncm || null, 
-          body.valor_promocional || null, 
-          body.em_promocao || 0, 
-          body.lote || null, 
-          body.validade || null, 
-          body.foto || null, 
+          body.custo || null,
+          body.cest || null,
+          body.aliquotas_imposto || null,
+          body.ncm || null,
+          body.valor_promocional || null,
+          body.em_promocao || 0,
+          body.lote || null,
+          body.validade || null,
+          body.foto || null,
           body.codigo_geral || null,
           id
         ).run();
@@ -443,22 +493,22 @@ export default {
       try {
         const formData = await request.formData();
         const file = formData.get("file");
-        
+
         if (!file) {
           return new Response(JSON.stringify({ erro: "Nenhum arquivo enviado" }), { status: 400, headers: corsHeaders });
         }
-        
+
         const fileName = file.name ? file.name.replace(/\s+/g, '_') : 'imagem_padrao.jpg';
         const nomeArquivo = `${Date.now()}_${fileName}`;
-        
+
         const buffer = await file.arrayBuffer();
-        
+
         await env.BUCKET_PRODUTOS.put(nomeArquivo, buffer, {
           httpMetadata: { contentType: file.type || 'image/jpeg' }
         });
-        
+
         const urlPublica = `https://pub-cef0af4ec14641d69ab30f7d560f9387.r2.dev/${nomeArquivo}`;
-        
+
         return new Response(JSON.stringify({ sucesso: true, url: urlPublica }), { status: 201, headers: corsHeaders });
       } catch (error) {
         return new Response(JSON.stringify({ erro: "Erro ao salvar no R2.", detalhe: error.message }), { status: 500, headers: corsHeaders });
@@ -527,8 +577,8 @@ export default {
         ).run();
 
         return new Response(JSON.stringify({ success: true, id: novoId }), { status: 201, headers: corsHeaders });
-      } catch (e) { 
-        return new Response(JSON.stringify({ error: "POST Funcionario: " + e.message }), { status: 500, headers: corsHeaders }); 
+      } catch (e) {
+        return new Response(JSON.stringify({ error: "POST Funcionario: " + e.message }), { status: 500, headers: corsHeaders });
       }
     }
     if (method === "PUT" && path.startsWith("/api/web/funcionarios/")) {
