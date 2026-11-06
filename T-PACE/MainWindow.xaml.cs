@@ -1317,7 +1317,7 @@ namespace T_PACE
                 }
             }
 
-            public event PropertyChangedEventHandler? PropertyChanged;
+            public event PropertyChangedEventHandler PropertyChanged;
 
             protected void OnPropertyChanged(string propertyName)
             {

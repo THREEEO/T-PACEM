@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -168,13 +173,13 @@ namespace T_PACE
                         var jsonString = await response.Content.ReadAsStringAsync();
                         using (var json = JsonDocument.Parse(jsonString))
                         {
-                            string versaoNuvem = json.RootElement.GetProperty("versao").GetString();
-                            string linkDownload = json.RootElement.GetProperty("link_download").GetString();
+                            string versaoNuvem = json.RootElement.GetProperty("versao").GetString()?.Trim().TrimStart('v', 'V');
+                            string linkDownload = json.RootElement.GetProperty("link_download").GetString()?.Trim();
 
-                            if (!string.IsNullOrEmpty(versaoNuvem))
+                            if (!string.IsNullOrEmpty(versaoNuvem) && !string.IsNullOrEmpty(linkDownload))
                             {
                                 Version vNuvem = new Version(versaoNuvem);
-                                Version vLocal = new Version(VersaoAtualApp);
+                                Version vLocal = new Version(VersaoAtualApp.Trim().TrimStart('v', 'V'));
 
                                 if (vNuvem > vLocal)
                                 {
@@ -192,6 +197,74 @@ namespace T_PACE
             }
         }
 
+        private static bool EhArquivoZipValido(byte[] bytes)
+        {
+            return bytes != null && bytes.Length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B;
+        }
+
+        private static async Task<byte[]> BaixarPacoteAtualizacaoAsync(string link)
+        {
+            using (var handler = new HttpClientHandler { AllowAutoRedirect = true, UseCookies = true })
+            using (var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(5) })
+            {
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) T-PACE-Updater/1.0");
+
+                var bytes = await client.GetByteArrayAsync(link);
+                if (EhArquivoZipValido(bytes))
+                {
+                    return bytes;
+                }
+
+                // Caso o Google Drive retorne a página HTML de aviso de verificação de vírus para arquivos grandes/executáveis
+                string html = Encoding.UTF8.GetString(bytes);
+
+                string actionUrl = "https://drive.usercontent.google.com/download";
+                var formMatch = Regex.Match(html, @"<form[^>]*id=""download-form""[^>]*action=""([^""]+)""", RegexOptions.IgnoreCase);
+                if (!formMatch.Success)
+                {
+                    formMatch = Regex.Match(html, @"<form[^>]*action=""(https://drive\.usercontent\.google\.com/download[^""]*)""", RegexOptions.IgnoreCase);
+                }
+                if (formMatch.Success)
+                {
+                    actionUrl = System.Net.WebUtility.HtmlDecode(formMatch.Groups[1].Value);
+                }
+
+                var inputMatches = Regex.Matches(html, @"<input[^>]*type=""hidden""[^>]*name=""([^""]+)""[^>]*value=""([^""]*)""", RegexOptions.IgnoreCase);
+                var queryParams = new List<string>();
+                foreach (Match m in inputMatches)
+                {
+                    string name = Uri.EscapeDataString(m.Groups[1].Value);
+                    string val = Uri.EscapeDataString(System.Net.WebUtility.HtmlDecode(m.Groups[2].Value));
+                    queryParams.Add($"{name}={val}");
+                }
+
+                string urlConfirmada;
+                if (queryParams.Count > 0)
+                {
+                    string separador = actionUrl.Contains("?") ? "&" : "?";
+                    urlConfirmada = actionUrl + separador + string.Join("&", queryParams);
+                }
+                else
+                {
+                    var idMatch = Regex.Match(link, @"(?:[?&]id=|/file/d/)([a-zA-Z0-9_-]+)");
+                    if (!idMatch.Success)
+                    {
+                        throw new InvalidOperationException("O link de download não retornou um arquivo ZIP válido.");
+                    }
+                    string fileId = idMatch.Groups[1].Value;
+                    urlConfirmada = $"https://drive.usercontent.google.com/download?id={fileId}&export=download&confirm=t";
+                }
+
+                bytes = await client.GetByteArrayAsync(urlConfirmada);
+                if (!EhArquivoZipValido(bytes))
+                {
+                    throw new InvalidOperationException("Não foi possível obter o pacote ZIP de atualização a partir do servidor.");
+                }
+
+                return bytes;
+            }
+        }
+
         private async void BtnAtualizar_Click(object sender, RoutedEventArgs e)
         {
             string link = btnAtualizar.Tag?.ToString();
@@ -202,34 +275,70 @@ namespace T_PACE
                 btnAtualizar.Content = " Baixando atualização... ";
                 btnAtualizar.IsEnabled = false;
 
-                string tempPasta = System.IO.Path.GetTempPath();
-                string zipPath = System.IO.Path.Combine(tempPasta, "tpace_update.zip");
-                string batPath = System.IO.Path.Combine(tempPasta, "atualizador.bat");
+                string tempPasta = Path.GetTempPath();
+                string zipPath = Path.Combine(tempPasta, "tpace_update.zip");
+                string extractDir = Path.Combine(tempPasta, "tpace_update_extracted");
+                string batPath = Path.Combine(tempPasta, "atualizador.bat");
 
-                string appPath = AppDomain.CurrentDomain.BaseDirectory;
-                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                string appPath = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName
+                                 ?? Path.Combine(appPath, "T-PACE.exe");
+                int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
 
-                using (var client = new HttpClient())
+                var bytes = await BaixarPacoteAtualizacaoAsync(link);
+                await File.WriteAllBytesAsync(zipPath, bytes);
+
+                btnAtualizar.Content = " Extraindo arquivos... ";
+
+                if (Directory.Exists(extractDir))
                 {
-                    var bytes = await client.GetByteArrayAsync(link);
-                    await System.IO.File.WriteAllBytesAsync(zipPath, bytes);
+                    Directory.Delete(extractDir, true);
+                }
+                Directory.CreateDirectory(extractDir);
+
+                ZipFile.ExtractToDirectory(zipPath, extractDir, true);
+
+                // Se o ZIP tiver apenas uma subpasta raiz, usa essa subpasta como origem
+                string sourceDir = extractDir;
+                var topFiles = Directory.GetFiles(extractDir);
+                var topDirs = Directory.GetDirectories(extractDir);
+                if (topFiles.Length == 0 && topDirs.Length == 1)
+                {
+                    sourceDir = topDirs[0];
+                }
+
+                // Preserva o banco de dados local existente para não perder vendas/sessões locais
+                string dbLocal = Path.Combine(appPath, "tpace_pdv.sqlite");
+                string dbNoPacote = Path.Combine(sourceDir, "tpace_pdv.sqlite");
+                if (File.Exists(dbLocal) && File.Exists(dbNoPacote))
+                {
+                    try { File.Delete(dbNoPacote); } catch { }
                 }
 
                 btnAtualizar.Content = " Instalando... ";
 
                 string script = $@"@echo off
-timeout /t 2 /nobreak > NUL
-powershell.exe -windowstyle hidden -Command ""Expand-Archive -Path '{zipPath}' -DestinationPath '{appPath}' -Force""
-del ""{zipPath}""
+chcp 65001 > NUL
+:waitloop
+tasklist /FI ""PID eq {currentPid}"" 2>NUL | find /I ""{currentPid}"" >NUL
+if ""%ERRORLEVEL%""==""0"" (
+    timeout /t 1 /nobreak > NUL
+    goto waitloop
+)
+timeout /t 1 /nobreak > NUL
+xcopy ""{sourceDir}\*"" ""{appPath}\"" /E /H /C /I /Y > NUL
+rmdir /S /Q ""{extractDir}"" 2>NUL
+del /F /Q ""{zipPath}"" 2>NUL
 start """" ""{exePath}""
 del ""%~f0""
 ";
-                System.IO.File.WriteAllText(batPath, script);
+                File.WriteAllText(batPath, script, new UTF8Encoding(false));
 
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = batPath,
-                    UseShellExecute = true,
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"\"{batPath}\"\"",
+                    UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
                 };
@@ -240,7 +349,7 @@ del ""%~f0""
             catch (Exception ex)
             {
                 MessageBox.Show($"Não foi possível atualizar automaticamente. Detalhe: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
-                btnAtualizar.Content = " Erro. ";
+                btnAtualizar.Content = " Tentar novamente ";
                 btnAtualizar.IsEnabled = true;
             }
         }
