@@ -10,7 +10,6 @@ using Dapper;
 
 namespace T_PACE
 {
-    // Conversor universal de Decimais
     public class DecimalConverter : JsonConverter<decimal>
     {
         public override decimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -56,22 +55,18 @@ namespace T_PACE
         }
     }
 
-    // NOVO: Conversor para Boolean (Converte 0/1 do JSON para false/true)
     public class BooleanConverter : JsonConverter<bool>
     {
         public override bool Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            // Se já vier como booleano
             if (reader.TokenType == JsonTokenType.True) return true;
             if (reader.TokenType == JsonTokenType.False) return false;
 
-            // Se vier como número (ex: 0 ou 1)
             if (reader.TokenType == JsonTokenType.Number)
             {
                 return reader.GetInt32() == 1;
             }
 
-            // Se vier como texto (ex: "0" ou "1")
             if (reader.TokenType == JsonTokenType.String)
             {
                 string valor = reader.GetString();
@@ -88,7 +83,6 @@ namespace T_PACE
         }
     }
 
-    // CLASSE DE BLINDAGEM: Evita qualquer erro de 'dynamic' e converte com segurança
     public class SessaoCaixaDTO
     {
         public long id { get; set; }
@@ -103,7 +97,7 @@ namespace T_PACE
 
     public static class SincronizacaoService
     {
-        private static readonly string apiUrl = "https://tpace-api.whyguiih.workers.dev/api/app/produtos";
+        private static readonly string apiUrl = "https://tpacem.manoelaagostini.workers.dev/api/app/produtos";
 
         public static async Task SincronizarProdutosAsync()
         {
@@ -116,13 +110,12 @@ namespace T_PACE
                     var opcoesJson = new JsonSerializerOptions();
                     opcoesJson.Converters.Add(new DecimalConverter());
                     opcoesJson.Converters.Add(new DoubleNullConverter());
-                    opcoesJson.Converters.Add(new BooleanConverter()); // NOVO CONVERSOR AQUI
+                    opcoesJson.Converters.Add(new BooleanConverter());
 
                     var produtosCloudflare = JsonSerializer.Deserialize<List<Produto>>(response, opcoesJson);
 
                     if (produtosCloudflare != null && produtosCloudflare.Count > 0)
                     {
-                        // 1. PRIMEIRO LOOP: Salva tudo no banco de dados local
                         using (var connection = new SqliteConnection(DatabaseConfig.ConnectionString))
                         {
                             connection.Open();
@@ -131,7 +124,6 @@ namespace T_PACE
                             {
                                 try
                                 {
-                                    // A) Inserção Inteligente (Cria os novos e atualiza os existentes)
                                     foreach (var p in produtosCloudflare)
                                     {
                                         string sql = @"
@@ -159,8 +151,6 @@ namespace T_PACE
                                         connection.Execute(sql, p, transaction: tx);
                                     }
 
-                                    // B) LIMPEZA CIRÚRGICA DE ZUMBIS: Apaga os produtos locais que não vieram da nuvem, 
-                                    // MAS apenas se eles NUNCA tiverem sido vendidos (protege a integridade do PDV)
                                     var idsNuvem = string.Join(",", produtosCloudflare.Select(p => p.id));
                                     string sqlLimpeza = $@"
                                         DELETE FROM tb_produtos 
@@ -170,7 +160,6 @@ namespace T_PACE
 
                                     connection.Execute(sqlLimpeza, transaction: tx);
 
-                                    // Confirma a operação!
                                     tx.Commit();
                                 }
                                 catch
@@ -181,31 +170,24 @@ namespace T_PACE
                             }
                         }
 
-                        // 2. SEGUNDO LOOP: Baixa as fotos para o Cache Local...
-
-                        // 2. SEGUNDO LOOP: Baixa as fotos para o Cache Local
                         string pastaImagens = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Imagens");
                         if (!System.IO.Directory.Exists(pastaImagens))
                         {
                             System.IO.Directory.CreateDirectory(pastaImagens);
                         }
 
-                        // Mudamos a variável para 'prod' para não colidir com o 'p' de cima
                         foreach (var prod in produtosCloudflare)
                         {
                             if (!string.IsNullOrWhiteSpace(prod.foto))
                             {
                                 try
                                 {
-                                    // Limpeza agressiva para garantir que o link S3 antigo vire um link R2 Dev público válido
                                     string urlLimpa = prod.foto.Replace("pub-https://", "pub-")
                                                                .Replace(".r2.cloudflarestorage.com/tpacem.r2.dev/", ".r2.dev/");
 
-                                    // Pega só o nome final do arquivo (ex: foto.jpg)
                                     string nomeArquivo = urlLimpa.Substring(urlLimpa.LastIndexOf('/') + 1);
                                     string caminhoLocal = System.IO.Path.Combine(pastaImagens, nomeArquivo);
 
-                                    // Só baixa se a imagem ainda não existir na pasta do computador!
                                     if (!System.IO.File.Exists(caminhoLocal))
                                     {
                                         var imageBytes = await client.GetByteArrayAsync(urlLimpa);
@@ -214,7 +196,6 @@ namespace T_PACE
                                 }
                                 catch
                                 {
-                                    // Se uma foto falhar, ignora e continua baixando as outras
                                 }
                             }
                         }
@@ -230,21 +211,16 @@ namespace T_PACE
                 }
             }
         }
-        // NOVO MÉTOD: Envia a venda para a nuvem
-        // NOVO MÉTOD: Varre o banco local e envia as vendas pendentes para a nuvem
         public static async Task SincronizarVendasPendentesAsync()
         {
             try
             {
-                // GARANTIA DE INTEGRIDADE: Envia as sessões pendentes ANTES das vendas.
-                // Isso evita que o banco na nuvem recuse a venda por erro de Foreign Key.
                 await SincronizarSessoesCaixaAsync();
 
                 using (var conn = new SqliteConnection(DatabaseConfig.ConnectionString))
                 {
                     conn.Open();
 
-                    // Pega todas as vendas que ainda não subiram (0 ou nulo)
                     var vendasPendentes = conn.Query("SELECT * FROM tb_vendas WHERE sincronizado = 0 OR sincronizado IS NULL").ToList();
 
                     if (vendasPendentes.Count == 0) return;
@@ -253,7 +229,6 @@ namespace T_PACE
                     {
                         foreach (var venda in vendasPendentes)
                         {
-                            // Busca os itens e pagamentos vinculados a essa venda local
                             var itens = conn.Query("SELECT id_produto, quantidade, preco_unitario, subtotal FROM tb_itens_venda WHERE id_venda = @IdVenda", new { IdVenda = venda.id })
                                 .Select(i => new { id_produto = i.id_produto, quantidade = i.quantidade, preco_unitario = i.preco_unitario, subtotal = i.subtotal }).ToList();
 
@@ -270,7 +245,7 @@ namespace T_PACE
                                 desconto = venda.desconto,
                                 total = venda.total,
                                 status = venda.status,
-                                id_cupom = venda.id_cupom, // ENVIANDO O CÓDIGO TEMPORAL PARA O CLOUDFLARE
+                                id_cupom = venda.id_cupom,
                                 pagamentos = pagamentos,
                                 itens = itens
                             };
@@ -278,9 +253,8 @@ namespace T_PACE
                             string json = JsonSerializer.Serialize(objVendaNuvem);
                             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-                            var response = await client.PostAsync("https://tpace-api.whyguiih.workers.dev/api/app/vendas", content);
+                            var response = await client.PostAsync("https://tpacem.manoelaagostini.workers.dev/api/app/vendas", content);
 
-                            // Se a API da nuvem salvou com sucesso, marcamos como sincronizado localmente!
                             if (response.IsSuccessStatusCode)
                             {
                                 conn.Execute("UPDATE tb_vendas SET sincronizado = 1 WHERE id = @Id", new { Id = venda.id });
@@ -291,7 +265,6 @@ namespace T_PACE
             }
             catch
             {
-                // Falha silenciosa. Se a internet estiver caída, o erro morre aqui e o sistema tentará de novo na próxima venda.
             }
         }
         public static async Task SincronizarSessoesCaixaAsync()
@@ -308,7 +281,6 @@ namespace T_PACE
                     {
                         var listaSessoes = sessoes.Select(s => new
                         {
-                            // Segura os Casts! Convert.ToInt64 blinda o app contra crashes dinâmicos.
                             id_caixa = Convert.ToInt64(s.id_caixa),
                             id_usuario = Convert.ToInt64(s.id_usuario),
                             data_abertura = Convert.ToDateTime(s.data_abertura).ToString("yyyy-MM-dd HH:mm:ss"),
@@ -325,7 +297,7 @@ namespace T_PACE
                         string json = JsonSerializer.Serialize(listaSessoes);
                         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-                        var response = await client.PostAsync("https://tpace-api.whyguiih.workers.dev/api/app/sessoes", content);
+                        var response = await client.PostAsync("https://tpacem.manoelaagostini.workers.dev/api/app/sessoes", content);
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -346,7 +318,6 @@ namespace T_PACE
                 using (var conn = new SqliteConnection(DatabaseConfig.ConnectionString))
                 {
                     conn.Open();
-                    // Puxa as trocas que ainda não subiram
                     var trocas = conn.Query("SELECT * FROM tb_trocas WHERE sincronizado = 0 OR sincronizado IS NULL").ToList();
                     if (trocas.Count == 0) return;
 
@@ -365,9 +336,8 @@ namespace T_PACE
                         string json = JsonSerializer.Serialize(listaTrocas);
                         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-                        var response = await client.PostAsync("https://tpace-api.whyguiih.workers.dev/api/app/trocas", content);
+                        var response = await client.PostAsync("https://tpacem.manoelaagostini.workers.dev/api/app/trocas", content);
 
-                        // Se a nuvem salvar com sucesso, marca como 'sincronizado = 1' no banco local!
                         if (response.IsSuccessStatusCode)
                         {
                             foreach (var t in listaTrocas)
@@ -378,7 +348,7 @@ namespace T_PACE
                     }
                 }
             }
-            catch { } // Falha silenciosa para caso esteja sem internet (tenta depois)
+            catch { }
         }
     }
 }

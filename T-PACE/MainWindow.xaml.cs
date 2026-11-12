@@ -29,7 +29,6 @@ namespace T_PACE
                 await SincronizacaoService.SincronizarTrocasPendentesAsync();
             });
 
-            // ATUALIZANDO O PERFIL VISUAL
             if (!string.IsNullOrEmpty(Session.CurrentUserName))
             {
                 txtNomeUsuario.Text = Session.CurrentUserName;
@@ -56,7 +55,6 @@ namespace T_PACE
             Task.Run(async () => await SincronizacaoService.SincronizarProdutosAsync());
         }
 
-        // Adicionamos a palavra 'async' aqui na assinatura do método
         private async void TxtBusca_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -87,7 +85,6 @@ namespace T_PACE
             {
                 AbrirTelaPagamento();
             }
-            // NOVO: Atalho F9 (Fechamento do Caixa)
             else if (e.Key == Key.F9)
             {
                 AbrirTelaFechamento();
@@ -101,21 +98,17 @@ namespace T_PACE
                 int quantidadeDesejada = 1;
                 string codigoFinal = entradaCodigo;
 
-                // 1. INTELIGÊNCIA DO MULTIPLICADOR (Ex: 5x123456)
                 if (entradaCodigo.Contains("x") || entradaCodigo.Contains("X"))
                 {
-                    // Quebra a string em duas partes: o que vem antes do X e o que vem depois
                     string[] partes = entradaCodigo.Split(new char[] { 'x', 'X' }, 2);
 
-                    // Verifica se a primeira parte é realmente um número
                     if (int.TryParse(partes[0].Trim(), out int qtd) && qtd > 0)
                     {
                         quantidadeDesejada = qtd;
-                        codigoFinal = partes[1].Trim(); // O código de barras é o que restou
+                        codigoFinal = partes[1].Trim();
                     }
                 }
 
-                // 2. BUSCA NO BANCO
                 var produto = _repositorio.BuscarPorCodigoDeBarras(codigoFinal);
 
                 if (produto != null)
@@ -137,7 +130,6 @@ namespace T_PACE
 
                     if (itemExistente != null)
                     {
-                        // Soma a quantidadeNova com a que já estava no carrinho
                         itemExistente.Quantidade += quantidadeDesejada;
                         itemExistente.Total = itemExistente.Quantidade * precoCobrado;
                     }
@@ -158,14 +150,12 @@ namespace T_PACE
                     txtUltimoNome.Text = produto.nome;
                     txtUltimoDetalhes.Text = $"Cód: {produto.codigo_barras}  |  Qtd: {quantidadeDesejada} un";
 
-                    // Exibe o preço total cobrado pela quantidade inteira na tela principal
                     txtUltimoPreco.Text = $"R$ {(quantidadeDesejada * precoCobrado):N2}";
 
                     AtualizarTotais();
                     txtBusca.Clear();
                     txtBusca.Clear();
 
-                    // --- CARREGAMENTO DA FOTO DO CACHE LOCAL INSTANTÂNEO ---
                     if (!string.IsNullOrEmpty(produto.foto))
                     {
                         string nomeArquivo = produto.foto.Substring(produto.foto.LastIndexOf('/') + 1);
@@ -179,9 +169,8 @@ namespace T_PACE
                                 bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
                                 bitmap.UriSource = new Uri(caminhoLocal, UriKind.Absolute);
                                 bitmap.EndInit();
-                                bitmap.Freeze(); // Garante estabilidade na interface gráfica
+                                bitmap.Freeze();
 
-                                // CORREÇÃO: Aplica rotação de 90° para compensar o formato de orientação do celular
                                 var rotatedBitmap = new System.Windows.Media.Imaging.TransformedBitmap(bitmap, new System.Windows.Media.RotateTransform(90));
                                 rotatedBitmap.Freeze();
 
@@ -212,7 +201,6 @@ namespace T_PACE
                 }
                 else
                 {
-                    // Se não encontrou nem com nem sem multiplicador
                     MessageBox.Show("Produto não cadastrado!", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
                     txtBusca.SelectAll();
                 }
@@ -223,9 +211,6 @@ namespace T_PACE
             }
         }
 
-        // ==========================================
-        // LÓGICA DE CANCELAMENTO (F3)
-        // ==========================================
         private void AbrirTelaCancelamento()
         {
             if (Carrinho.Count == 0)
@@ -295,9 +280,6 @@ namespace T_PACE
             }
         }
 
-        // ==========================================
-        // LÓGICA DE TROCAS E DEVOLUÇÕES (F6)
-        // ==========================================
         private void AbrirTelaTroca()
         {
             OverlayTroca.Visibility = Visibility.Visible;
@@ -314,7 +296,6 @@ namespace T_PACE
             txtBusca.Focus();
         }
 
-        // CONTROLES DE TECLADO (Fluxo de navegação)
         private void TxtBuscaCupomTroca_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter) BtnBuscarCupom_Click(null, null);
@@ -352,7 +333,6 @@ namespace T_PACE
             else if (e.Key == Key.Escape) FecharTelaTroca();
         }
 
-        // PROCESSAMENTO DE BANCO DE DADOS
         private void BtnBuscarCupom_Click(object sender, RoutedEventArgs e)
         {
             string cupom = txtBuscaCupomTroca.Text.Trim();
@@ -375,7 +355,6 @@ namespace T_PACE
                 else
                 {
                     listaItensCupom.ItemsSource = itens;
-                    // Joga o foco pra lista para o usuário selecionar com as setas e espaço
                     listaItensCupom.Focus();
                     listaItensCupom.SelectedIndex = 0;
                 }
@@ -396,7 +375,6 @@ namespace T_PACE
                 return;
             }
 
-            // 1. Validação de Segurança: Garante que o cliente não tente devolver mais do que comprou
             foreach (ItemVendaTroca selecionado in listaItensCupom.SelectedItems)
             {
                 if (qtdTroca > selecionado.quantidade_comprada)
@@ -417,18 +395,15 @@ namespace T_PACE
                     conn.Open();
                     using (var tx = conn.BeginTransaction())
                     {
-                        // 2. Loop de processamento de múltiplos itens
                         foreach (ItemVendaTroca selecionado in listaItensCupom.SelectedItems)
                         {
                             decimal valorItem = qtdTroca * selecionado.preco_unitario;
                             valorTotalDevolvido += valorItem;
 
-                            // CORREÇÃO DA HORA: Força o uso do DateTime.Now do C# em vez do UTC do SQLite
                             conn.Execute(@"INSERT INTO tb_trocas (tipo_troca, data_troca, id_vendedor, produto_retornado, quantidade)
                                            VALUES (@Tipo, @DataHora, @Vendedor, @Codigo, @Qtd)",
                                          new { Tipo = tipoStr, DataHora = DateTime.Now, Vendedor = Session.CurrentUserId, Codigo = selecionado.codigo_barras, Qtd = qtdTroca }, tx);
 
-                            // CORREÇÃO DO ESTOQUE: Usa a mesma lógica avançada das Vendas (reconhece codigo_geral e múltiplos códigos)
                             conn.Execute(@"UPDATE tb_produtos 
                                            SET quantidade = quantidade + @Qtd 
                                            WHERE (codigo_geral IS NOT NULL AND codigo_geral = (SELECT codigo_geral FROM tb_produtos WHERE id = @IdProduto))
@@ -440,7 +415,6 @@ namespace T_PACE
                     }
                 }
                 Task.Run(async () => await SincronizacaoService.SincronizarTrocasPendentesAsync());
-                // 3. Resultado Financeiro
                 if (tipoStr == "troca")
                 {
                     _descontoManualVenda += valorTotalDevolvido;
@@ -460,9 +434,6 @@ namespace T_PACE
             }
         }
 
-        // ==========================================
-        // LÓGICA DE BUSCA POR NOME (F4)
-        // ==========================================
         private void AbrirTelaBusca()
         {
             OverlayBusca.Visibility = Visibility.Visible;
@@ -474,15 +445,13 @@ namespace T_PACE
         private void FecharTelaBusca()
         {
             OverlayBusca.Visibility = Visibility.Collapsed;
-            txtBusca.Focus(); // Devolve o foco para o leitor de código de barras
+            txtBusca.Focus();
         }
 
-        // Pesquisa no banco enquanto o usuário digita
         private void txtBuscaNome_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
             string termo = txtBuscaNome.Text.Trim();
 
-            // Só pesquisa a partir de 2 letras, para evitar sobrecarregar o banco
             if (termo.Length >= 2)
             {
                 var resultados = _repositorio.BuscarPorNome(termo);
@@ -494,7 +463,6 @@ namespace T_PACE
             }
         }
 
-        // Controle do teclado no campo de texto
         private void txtBuscaNome_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
@@ -504,14 +472,11 @@ namespace T_PACE
             }
             else if (e.Key == Key.Down && listaResultadosBusca.Items.Count > 0)
             {
-                // Impede que o TextBox continue processando a seta
                 e.Handled = true;
 
-                // Move o foco para a lista e seleciona o primeiro item
                 listaResultadosBusca.Focus();
                 listaResultadosBusca.SelectedIndex = 0;
 
-                // Força o "foco físico" no primeiro item da lista para as setas continuarem funcionando
                 var item = (System.Windows.Controls.ListBoxItem)listaResultadosBusca.ItemContainerGenerator.ContainerFromIndex(0);
                 item?.Focus();
             }
@@ -523,7 +488,6 @@ namespace T_PACE
             }
         }
 
-        // Controle do teclado navegando dentro da lista
         private void listaResultadosBusca_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -532,11 +496,10 @@ namespace T_PACE
             }
             else if (e.Key == Key.Escape)
             {
-                txtBuscaNome.Focus(); // Aperta Esc, devolve o foco pra digitar de novo
+                txtBuscaNome.Focus();
             }
         }
 
-        // Para quem prefere usar o mouse (2 cliques)
         private void listaResultadosBusca_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             SelecionarProdutoBusca();
@@ -548,18 +511,13 @@ namespace T_PACE
             {
                 FecharTelaBusca();
 
-                // Adiciona o código do produto ao lado do que já estiver no campo (ex: "5x")
                 txtBusca.Text += produtoSelecionado.codigo_barras;
 
-                // Joga o cursor piscante para o final do texto e devolve o foco
                 txtBusca.CaretIndex = txtBusca.Text.Length;
                 txtBusca.Focus();
             }
         }
 
-        // ==========================================
-        // LÓGICA DE DESCONTO GLOBAL (F5)
-        // ==========================================
         private void AbrirTelaDesconto()
         {
             if (Carrinho.Count == 0)
@@ -570,9 +528,8 @@ namespace T_PACE
 
             OverlayDesconto.Visibility = Visibility.Visible;
 
-            // Se já houver um desconto aplicado antes, mostra ele. Se não, limpa.
             txtValorDesconto.Text = _descontoManualVenda > 0 ? _descontoManualVenda.ToString("N2") : "";
-            txtValorDesconto.SelectAll(); // Seleciona tudo para o operador sobrescrever fácil
+            txtValorDesconto.SelectAll();
             txtValorDesconto.Focus();
         }
 
@@ -600,7 +557,6 @@ namespace T_PACE
         {
             string entrada = txtValorDesconto.Text.Trim();
 
-            // Se o operador limpou o campo e deu Enter, removemos o desconto
             if (string.IsNullOrEmpty(entrada))
             {
                 _descontoManualVenda = 0m;
@@ -609,15 +565,12 @@ namespace T_PACE
                 return;
             }
 
-            // Descobre se o operador digitou o símbolo de %
             bool isPorcentagem = entrada.Contains("%");
 
-            // Limpa a string para pegar só o número puro (tira R$, %, espaços e arruma a vírgula)
             entrada = entrada.Replace("R$", "").Replace("%", "").Replace(" ", "").Replace(",", ".");
 
             if (decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorDigitado))
             {
-                // Descobre quanto a venda está custando agora (já abatendo os descontos de promoção)
                 decimal subtotalBruto = Carrinho.Sum(i => i.PrecoUnitario * i.Quantidade);
                 decimal descontosDePromocoes = Carrinho.Sum(i => i.DescontoUnitario * i.Quantidade);
                 decimal totalAtualVenda = subtotalBruto - descontosDePromocoes;
@@ -626,16 +579,13 @@ namespace T_PACE
 
                 if (isPorcentagem)
                 {
-                    // Regra de 3 básica: (Valor Total * Porcentagem) / 100
                     valorDescontoFinal = totalAtualVenda * (valorDigitado / 100m);
                 }
                 else
                 {
-                    // Se não tem %, é desconto em Reais direto
                     valorDescontoFinal = valorDigitado;
                 }
 
-                // Trava de segurança: O desconto não pode ser maior que a venda nem negativo
                 if (valorDescontoFinal > totalAtualVenda || valorDescontoFinal < 0)
                 {
                     MessageBox.Show("O desconto não pode ser negativo ou ultrapassar o valor total da venda!", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -643,7 +593,6 @@ namespace T_PACE
                     return;
                 }
 
-                // Aplica na variável global e atualiza a tela
                 _descontoManualVenda = valorDescontoFinal;
                 AtualizarTotais();
                 FecharTelaDesconto();
@@ -672,9 +621,6 @@ namespace T_PACE
 
         }
 
-        // ==========================================
-        // LÓGICA DE PAGAMENTO E FINALIZAÇÃO (F2)
-        // ==========================================
         private void AbrirTelaPagamento()
         {
             if (Carrinho.Count == 0)
@@ -688,11 +634,11 @@ namespace T_PACE
             decimal totalAPagar = subtotalBruto - (descontosDePromocoes + _descontoManualVenda);
 
             txtPagamentoTotal.Text = $"R$ {totalAPagar:N2}";
-            txtValorRecebido.Text = totalAPagar.ToString("N2"); // Sugere o valor exato inicialmente
+            txtValorRecebido.Text = totalAPagar.ToString("N2");
             txtTroco.Text = "R$ 0,00";
 
             OverlayPagamento.Visibility = Visibility.Visible;
-            cmbMetodoPagamento.SelectedIndex = 0; // Reseta pro Dinheiro
+            cmbMetodoPagamento.SelectedIndex = 0;
             txtValorRecebido.SelectAll();
             txtValorRecebido.Focus();
         }
@@ -734,10 +680,8 @@ namespace T_PACE
                 ProcessarVenda();
                 e.Handled = true;
             }
-            // NOVO: Setas para cima e para baixo trocam a forma de pagamento
             else if (e.Key == Key.Up)
             {
-                // Se não estiver no primeiro item, sobe um. Se estiver, vai pro último.
                 if (cmbMetodoPagamento.SelectedIndex > 0)
                     cmbMetodoPagamento.SelectedIndex--;
                 else
@@ -747,7 +691,6 @@ namespace T_PACE
             }
             else if (e.Key == Key.Down)
             {
-                // Se não estiver no último item, desce um. Se estiver, vai pro primeiro.
                 if (cmbMetodoPagamento.SelectedIndex < cmbMetodoPagamento.Items.Count - 1)
                     cmbMetodoPagamento.SelectedIndex++;
                 else
@@ -773,13 +716,9 @@ namespace T_PACE
                 return;
             }
 
-            // CALCULA O TROCO PARA SAIR NA NOTINHA
             decimal trocoFinal = valorRecebido - totalAPagar;
-            // Se por acaso vir nulo, assume "dinheiro" como padrão
             string metodoSelecionado = ((System.Windows.Controls.ComboBoxItem)cmbMetodoPagamento.SelectedItem)?.Content?.ToString() ?? "dinheiro";
 
-            // GERA CÓDIGO PAR DE 12 DÍGITOS (AnoMesDiaHoraMinutoSegundo)
-            // Fica estreito na bobina, não precisa de zero extra (pois é par) e não se repete.
             string codigoUnicoCupom = DateTime.Now.ToString("yyMMddHHmmssff");
 
             try
@@ -787,13 +726,10 @@ namespace T_PACE
                 using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseConfig.ConnectionString))
                 {
                     connection.Open();
-                    // O BeginTransaction garante que as tabelas sejam salvas em lote (ou tudo funciona ou tudo cancela)
                     using (var transaction = connection.BeginTransaction())
                     {
                         try
                         {
-                            // 1. Grava a Venda
-                            // 1. Grava a Venda
                             var sqlVenda = @"INSERT INTO tb_vendas (id_sessao_caixa, id_cliente, data_hora, subtotal, desconto, total, status, id_cupom)
                                              VALUES (@Sessao, NULL, @DataHora, @Subtotal, @Desconto, @Total, 'pago', @IdCupom);
                                              SELECT last_insert_rowid();";
@@ -805,10 +741,9 @@ namespace T_PACE
                                 Subtotal = subtotalBruto,
                                 Desconto = descontoTotal,
                                 Total = totalAPagar,
-                                IdCupom = codigoUnicoCupom // SALVANDO NO BANCO LOCAL
+                                IdCupom = codigoUnicoCupom
                             }, transaction);
 
-                            // 2. Grava os Itens e DÁ BAIXA NO ESTOQUE EM TODOS OS CÓDIGOS DE BARRAS IGUAIS
                             foreach (var item in Carrinho)
                             {
                                 var sqlItem = @"INSERT INTO tb_itens_venda (id_venda, id_produto, quantidade, preco_unitario, subtotal)
@@ -829,7 +764,6 @@ namespace T_PACE
                                 }, transaction);
                             }
 
-                            // 3. Grava o Pagamento
 
                             var sqlPagamento = @"INSERT INTO tb_pagamentos (id_venda, metodo, valor)
                                                  VALUES (@IdVenda, @Metodo, @Valor);";
@@ -842,25 +776,20 @@ namespace T_PACE
                             }, transaction);
 
 
-                            transaction.Commit(); // Se chegou aqui, joga tudo pro arquivo do banco de vez!
+                            transaction.Commit();
 
-                            // ==========================================
-                            // IMPRIMIR O CUPOM DA VENDA
-                            // ==========================================
                             ImprimirRecibo(idVenda, codigoUnicoCupom, Carrinho.ToList(), subtotalBruto, descontoTotal, totalAPagar, metodoSelecionado, valorRecebido, trocoFinal);
 
-                            // CHAMA O SINCRONIZADOR DE FILA
                             Task.Run(async () => await SincronizacaoService.SincronizarVendasPendentesAsync());
                         }
                         catch (Exception)
                         {
-                            transaction.Rollback(); // Deu erro? Cancela tudo pra não quebrar o banco
+                            transaction.Rollback();
                             throw;
                         }
                     }
                 }
 
-                // Finalizou com sucesso! Limpa a tela pro próximo cliente
                 Carrinho.Clear();
                 _descontoManualVenda = 0m;
                 txtUltimoNome.Text = "Caixa Livre";
@@ -873,15 +802,10 @@ namespace T_PACE
             }
             catch (Exception ex)
             {
-                // AGORA SIM ESTAMOS USANDO O "ex.Message"!
-                // Se der erro ao vender, ele vai te falar exatamente o que quebrou!
                 MessageBox.Show($"Erro ao concluir venda. Detalhe: {ex.Message}", "Erro Crítico", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        // ==========================================
-        // LÓGICA DE SAIR DO CAIXA (F9) E FECHAMENTO
-        // ==========================================
         private void AbrirTelaFechamento()
         {
             OverlayFechamento.Visibility = Visibility.Visible;
@@ -909,7 +833,6 @@ namespace T_PACE
                 string entrada = txtValorFechamento.Text.Trim().Replace("R$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
                 decimal.TryParse(entrada, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal valorFechamento);
 
-                // Grava o fechamento no banco de dados local
                 using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseConfig.ConnectionString))
                 {
                     conn.Open();
@@ -918,24 +841,21 @@ namespace T_PACE
                 }
 
                 FecharTelaFechamento();
-                await SairDoCaixa(); // Usa o método original para limpar a tela e deslogar
+                await SairDoCaixa();
             }
         }
 
         private async Task SairDoCaixa()
         {
-            // Bloqueia a tela e avisa o operador
             this.IsEnabled = false;
             txtUltimoNome.Text = "Encerrando Turno...";
             txtUltimoDetalhes.Text = "Aguarde enquanto os dados são salvos na nuvem.";
             txtUltimoPreco.Text = "";
 
-            // Força o envio das vendas e SESSÕES DE CAIXA pendentes
             await SincronizacaoService.SincronizarVendasPendentesAsync();
             await SincronizacaoService.SincronizarSessoesCaixaAsync();
             await SincronizacaoService.SincronizarTrocasPendentesAsync();
 
-            // Limpa a Sessão de quem estava logado
             Session.CurrentUserId = 0;
             Session.CurrentUserName = string.Empty;
             Session.CurrentSessaoCaixaId = 0;
@@ -960,9 +880,6 @@ namespace T_PACE
             this.Close();
         }
 
-        // ==========================================
-        // GERADOR E IMPRESSOR DE CUPOM TÉRMICO (NFC-e CORRIGIDO E ALINHADO)
-        // ==========================================
         private void ImprimirRecibo(long idVenda, string codigoUnicoCupom, System.Collections.Generic.List<ItemCupom> itens, decimal subtotal, decimal desconto, decimal total, string metodoPagamento, decimal valorRecebido, decimal troco)
         {
             try
@@ -970,22 +887,18 @@ namespace T_PACE
                 var printDialog = new System.Windows.Controls.PrintDialog();
                 var doc = new System.Windows.Documents.FlowDocument();
 
-                // Reduzido para 275 e margens zeradas nas laterais para respeitar os 72mm da impressora térmica
                 doc.PageWidth = 275;
                 doc.PagePadding = new System.Windows.Thickness(0, 10, 0, 20);
                 doc.FontFamily = new System.Windows.Media.FontFamily("Courier New");
                 doc.Foreground = System.Windows.Media.Brushes.Black;
 
-                // RESOLVE O PROBLEMA DE TEXTO FINO: Força TUDO a ser impresso em Negrito
                 doc.FontWeight = FontWeights.Bold;
 
                 System.Windows.Media.TextOptions.SetTextFormattingMode(doc, System.Windows.Media.TextFormattingMode.Display);
                 System.Windows.Media.TextOptions.SetTextRenderingMode(doc, System.Windows.Media.TextRenderingMode.Aliased);
 
-                // Reduzido para 36 colunas para caber na área de impressão sem quebrar a linha e estragar o alinhamento
                 int colunas = 36;
 
-                // 1. LOGO DA EMPRESA (Usando nota.png)
                 try
                 {
                     var uri = new Uri("pack://application:,,,/nota.png", UriKind.Absolute);
@@ -993,7 +906,7 @@ namespace T_PACE
                     var img = new System.Windows.Controls.Image
                     {
                         Source = bitmap,
-                        Width = 140, // Tamanho da logo
+                        Width = 140,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new System.Windows.Thickness(0, 0, 0, 10)
                     };
@@ -1002,7 +915,6 @@ namespace T_PACE
                 }
                 catch { }
 
-                // 2. CABEÇALHO (Centralizado)
                 var pCabecalho = new System.Windows.Documents.Paragraph();
                 pCabecalho.TextAlignment = TextAlignment.Center;
                 pCabecalho.LineHeight = 16;
@@ -1015,7 +927,6 @@ namespace T_PACE
                 pCabecalho.Inlines.Add(new System.Windows.Documents.Run(new string('-', colunas)) { FontSize = 11 });
                 doc.Blocks.Add(pCabecalho);
 
-                // 3. CORPO DO CUPOM (Sem código do produto)
                 var sb = new System.Text.StringBuilder();
 
                 sb.AppendLine("DESCRIÇÃO                   TOTAL(R$)");
@@ -1023,11 +934,9 @@ namespace T_PACE
                 foreach (var item in itens)
                 {
                     sb.AppendLine();
-                    // Descrição na primeira linha
                     string desc = item.Descricao.Length > colunas ? item.Descricao.Substring(0, colunas) : item.Descricao;
                     sb.AppendLine(desc);
 
-                    // Quantidade, UN e Preço na esquerda, Total na direita
                     string qtd = item.Quantidade.ToString("0.###");
                     string un = "UN";
                     string vlUn = item.PrecoUnitario.ToString("N2");
@@ -1038,7 +947,6 @@ namespace T_PACE
                 }
                 sb.AppendLine(new string('-', colunas));
 
-                // Totais (Agora soma a quantidade real de itens, e não a quantidade de linhas!)
                 decimal qtdeTotalItens = itens.Sum(i => i.Quantidade);
                 sb.AppendLine(AlinharLinha("Qtde. Total de Itens", qtdeTotalItens.ToString("0.###"), colunas));
                 sb.AppendLine(AlinharLinha("Subtotal R$", subtotal.ToString("N2"), colunas));
@@ -1047,17 +955,14 @@ namespace T_PACE
 
                 doc.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run(sb.ToString())) { FontSize = 11, Margin = new Thickness(0), LineHeight = 16 });
 
-                // 4. VALOR A PAGAR EM DESTAQUE
                 var pTotal = new System.Windows.Documents.Paragraph();
                 pTotal.Margin = new Thickness(0, 2, 0, 10);
-                pTotal.TextAlignment = TextAlignment.Left; // Alinha nativamente à direita, sem usar espaços falsos
+                pTotal.TextAlignment = TextAlignment.Left;
 
-                // Texto normal, número gigante e chamativo!
                 pTotal.Inlines.Add(new System.Windows.Documents.Run("VALOR TOTAL  R$ ") { FontSize = 11 });
                 pTotal.Inlines.Add(new System.Windows.Documents.Run(total.ToString("N2") + "\n") { FontWeight = FontWeights.Black, FontSize = 16 });
                 doc.Blocks.Add(pTotal);
 
-                // 5. FORMA DE PAGAMENTO E TROCO
                 var sbPagamento = new System.Text.StringBuilder();
                 sbPagamento.AppendLine(AlinharLinha("FORMA PAGAMENTO", "VALOR PAGO R$", colunas));
                 sbPagamento.AppendLine(AlinharLinha(metodoPagamento.ToUpper(), valorRecebido.ToString("N2"), colunas));
@@ -1065,10 +970,8 @@ namespace T_PACE
                 sbPagamento.AppendLine(new string('-', colunas));
                 doc.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run(sbPagamento.ToString())) { FontSize = 11, Margin = new Thickness(0), LineHeight = 16 });
 
-                // 6. CÓDIGO DE BARRAS DA VENDA E RODAPÉ
                 try
                 {
-                    // Gera o código de barras com a string recebida do momento exato da venda
                     var imgBarcode = GerarCodigoBarrasITF(codigoUnicoCupom);
                     doc.Blocks.Add(new System.Windows.Documents.BlockUIContainer(imgBarcode));
 
@@ -1091,7 +994,6 @@ namespace T_PACE
             }
         }
 
-        // Função Matemática Auxiliar
         private string AlinharLinha(string esquerda, string direita, int totalColunas)
         {
             if (esquerda.Length + direita.Length >= totalColunas)
@@ -1100,22 +1002,16 @@ namespace T_PACE
             return esquerda + direita.PadLeft(totalColunas - esquerda.Length);
         }
 
-        // ==========================================
-        // GERADOR NATIVO DE CÓDIGO DE BARRAS (CODE 39)
-        // ==========================================
-        // NOVO GERADOR DE BARRAS: Interleaved 2 of 5 (Metade da largura, linhas nítidas e fortes)
         private System.Windows.Controls.Image GerarCodigoBarrasITF(string texto)
         {
-            // O padrão ITF exige um número par de dígitos. Se for ímpar, adicionamos um zero.
             if (texto.Length % 2 != 0) texto = "0" + texto;
 
             string[] padroes = { "NNWWN", "WNNNW", "NWNNW", "WWNNN", "NNWNW", "WNWNN", "NWWNN", "NNNWW", "WNNWN", "NWNWN" };
 
-            int barraMagra = 2; // Grosso o suficiente para a cabeça térmica não borrar
+            int barraMagra = 2;
             int barraLarga = 5;
             int altura = 70;
 
-            // Calcula a largura total da imagem com antecedência
             int larguraTotal = (barraMagra * 4) + (barraLarga + barraMagra * 2);
             foreach (char c in texto)
             {
@@ -1126,20 +1022,17 @@ namespace T_PACE
             var visual = new System.Windows.Media.DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                // Pinta o fundo de branco
                 context.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(0, 0, larguraTotal, altura));
 
                 int x = 0;
 
-                // Padrão de Início (Start: 4 linhas finas intercaladas)
                 context.DrawRectangle(System.Windows.Media.Brushes.Black, null, new Rect(x, 0, barraMagra, altura)); x += barraMagra * 2;
                 context.DrawRectangle(System.Windows.Media.Brushes.Black, null, new Rect(x, 0, barraMagra, altura)); x += barraMagra * 2;
 
-                // A mágica: desenha os pares de números (um na barra preta, um no espaço em branco)
                 for (int i = 0; i < texto.Length; i += 2)
                 {
-                    string p1 = padroes[texto[i] - '0'];     // Número 1 vira as barras pretas
-                    string p2 = padroes[texto[i + 1] - '0']; // Número 2 vira os espaços brancos
+                    string p1 = padroes[texto[i] - '0'];
+                    string p2 = padroes[texto[i + 1] - '0'];
 
                     for (int j = 0; j < 5; j++)
                     {
@@ -1152,7 +1045,6 @@ namespace T_PACE
                     }
                 }
 
-                // Padrão de Fim (Stop: Larga preta, Fina branca, Fina preta)
                 context.DrawRectangle(System.Windows.Media.Brushes.Black, null, new Rect(x, 0, barraLarga, altura)); x += barraLarga + barraMagra;
                 context.DrawRectangle(System.Windows.Media.Brushes.Black, null, new Rect(x, 0, barraMagra, altura)); x += barraMagra;
             }
@@ -1174,16 +1066,13 @@ namespace T_PACE
         public class ItemVendaTroca
         {
             public long id_venda { get; set; }
-            public int id_produto { get; set; } // <--- ADICIONE ESTA LINHA AQUI
+            public int id_produto { get; set; }
             public string codigo_barras { get; set; }
             public string nome { get; set; }
             public decimal quantidade_comprada { get; set; }
             public decimal preco_unitario { get; set; }
         }
 
-        // ==========================================
-        // EVENTOS DE CLIQUE DO RODAPÉ
-        // ==========================================
         private void Rodape_F2_Click(object sender, MouseButtonEventArgs e) => AbrirTelaPagamento();
         private void Rodape_F3_Click(object sender, MouseButtonEventArgs e) => AbrirTelaCancelamento();
         private void Rodape_F4_Click(object sender, MouseButtonEventArgs e) => AbrirTelaBusca();
@@ -1193,7 +1082,7 @@ namespace T_PACE
 
         public class ItemCupom : INotifyPropertyChanged
         {
-            public int IdProduto { get; set; } // <--- ADICIONE ESTA LINHA AQUI
+            public int IdProduto { get; set; }
 
             private int _quantidade;
             private decimal _total;

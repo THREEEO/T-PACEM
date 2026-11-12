@@ -1,11 +1,10 @@
 ﻿using Microsoft.Data.Sqlite;
 using System.IO;
 using Dapper;
-using System; // Necessário para usar o System.Convert
+using System;
 
 namespace T_PACE
 {
-    // 1. Tradutor para converter Double em Decimal (Resolve o erro do F4)
     public class DecimalTypeHandler : SqlMapper.TypeHandler<decimal>
     {
         public override void SetValue(System.Data.IDbDataParameter parameter, decimal value)
@@ -19,7 +18,6 @@ namespace T_PACE
         }
     }
 
-    // 2. Tradutor para converter Double em Long (Resolve o erro que você acabou de reportar)
     public class LongFromDoubleTypeHandler : SqlMapper.TypeHandler<long>
     {
         public override void SetValue(System.Data.IDbDataParameter parameter, long value)
@@ -40,7 +38,6 @@ namespace T_PACE
 
         public static void InicializarBanco()
         {
-            // Registra os TypeHandlers
             try
             {
                 SqlMapper.AddTypeHandler(new LongFromDoubleTypeHandler());
@@ -48,18 +45,14 @@ namespace T_PACE
             }
             catch
             {
-                // se já registrado ou falhar por algum motivo, prosseguimos sem interromper
             }
 
-            // 1. CRIA O BANCO SE ELE NÃO EXISTIR
             if (!File.Exists(dbPath))
             {
-                // ... (O restante do seu código continua normalmente a partir daqui)
                 using (var connection = new SqliteConnection(ConnectionString))
                 {
                     connection.Open();
 
-                    // Script exato do seu arquivo tpace.sql no GitHub
                     string sqlGitHub = @"
                         PRAGMA defer_foreign_keys=TRUE;
                         
@@ -93,35 +86,25 @@ namespace T_PACE
                 }
             }
 
-            // 2. ATUALIZADOR AUTOMÁTICO DE TABELAS (Migrations Silenciosas)
-            // Mesmo se o banco já existir, ele garante que as colunas novas sejam empurradas
             using (var connection = new SqliteConnection(ConnectionString))
             {
                 connection.Open();
 
-                // Tenta adicionar a coluna quantidade_minima na tabela produtos
-                try { connection.Execute("ALTER TABLE tb_produtos ADD COLUMN quantidade_minima DECIMAL(10,3) DEFAULT 10;"); } catch { /* Ignora se já existir */ }
+                try { connection.Execute("ALTER TABLE tb_produtos ADD COLUMN quantidade_minima DECIMAL(10,3) DEFAULT 10;"); } catch {}
 
-                // Tenta adicionar a coluna id_filial na tabela usuários
-                try { connection.Execute("ALTER TABLE tb_usuarios ADD COLUMN id_filial INTEGER;"); } catch { /* Ignora se já existir */ }
+                try { connection.Execute("ALTER TABLE tb_usuarios ADD COLUMN id_filial INTEGER;"); } catch {}
 
-                // Tenta adicionar a coluna id_filial na tabela usuários
-                try { connection.Execute("ALTER TABLE tb_usuarios ADD COLUMN id_filial INTEGER;"); } catch { /* Ignora se já existir */ }
+                try { connection.Execute("ALTER TABLE tb_usuarios ADD COLUMN id_filial INTEGER;"); } catch {}
 
-                // NOVO: Adiciona a coluna para gerenciar a fila de sincronização
-                try { connection.Execute("ALTER TABLE tb_vendas ADD COLUMN sincronizado BOOLEAN DEFAULT 0;"); } catch { /* Ignora se já existir */ }
+                try { connection.Execute("ALTER TABLE tb_vendas ADD COLUMN sincronizado BOOLEAN DEFAULT 0;"); } catch {}
 
-                // NOVO: Adiciona a coluna para gerenciar a fila da sessão do caixa
                 try { connection.Execute("ALTER TABLE tb_sessao_caixa ADD COLUMN sincronizado BOOLEAN DEFAULT 0;"); } catch { }
 
-                // NOVAS COLUNAS DE PRODUTO
                 try { connection.Execute("ALTER TABLE tb_produtos ADD COLUMN foto TEXT;"); } catch { }
                 try { connection.Execute("ALTER TABLE tb_produtos ADD COLUMN codigo_geral INTEGER;"); } catch { }
 
-                // NOVO: Adiciona a coluna do Cupom Único na tabela de Vendas
                 try { connection.Execute("ALTER TABLE tb_vendas ADD COLUMN id_cupom VARCHAR(25);"); } catch { }
 
-                // NOVO: Cria a tabela de Trocas caso ela ainda não exista no banco local
                 try
                 { connection.Execute(@"CREATE TABLE IF NOT EXISTS tb_trocas (id_troca INTEGER PRIMARY KEY AUTOINCREMENT, tipo_troca VARCHAR(15) CHECK(tipo_troca IN ('troca', 'devolucao')), data_troca DATETIME DEFAULT CURRENT_TIMESTAMP, id_vendedor INTEGER, produto_retornado VARCHAR(20), quantidade DECIMAL(10,3) );"); } catch { }
                 try { connection.Execute("ALTER TABLE tb_trocas ADD COLUMN sincronizado BOOLEAN DEFAULT 0;"); } catch { }

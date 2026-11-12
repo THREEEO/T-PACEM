@@ -8,7 +8,6 @@
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
     <Window.Resources>
-        <!-- Estilo Moderno para os Botões -->
         <Style x:Key="BtnModerno" TargetType="Button">
             <Setter Property="Foreground" Value="#FFFFFF"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -36,7 +35,6 @@
             </Setter>
         </Style>
 
-        <!-- Estilo Moderno para Caixas de Texto (Corrigido o Padding) -->
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="12,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -65,10 +63,8 @@
         </Style>
     </Window.Resources>
 
-    <!-- Fundo Principal Gradiente -->
     <Grid Background="Transparent">
 
-        <!-- Card de Login Centralizado -->
         <Border Width="850" Height="520" Background="White" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border.Effect>
                 <DropShadowEffect Color="Black" Opacity="0.5" BlurRadius="30" ShadowDepth="20"/>
@@ -77,31 +73,22 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.1*" />
-                    <!-- Lado Esquerdo (Branding) -->
                     <ColumnDefinition Width="1.5*" />
-                    <!-- Lado Direito (Formulário) -->
                 </Grid.ColumnDefinitions>
 
-                <!-- ============================================== -->
-                <!-- LADO ESQUERDO: COR DA MARCA E LOGO -->
-                <!-- ============================================== -->
                 <Border Grid.Column="0" Background="#5E3A7D" CornerRadius="16,0,0,16" Padding="30">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
 
-                        <!-- CÍRCULO DA LOGO (Com a imagem inserida) -->
-                        <!-- Círculo da Logo maior (de 130 para 160) -->
                         <Border Width="160" Height="160" Background="#4A2D63" CornerRadius="80" Margin="0,0,0,25">
                             <Border.Effect>
                                 <DropShadowEffect Color="#2A1143" Opacity="0.5" BlurRadius="15" ShadowDepth="5"/>
                             </Border.Effect>
-                            <!-- Imagem da logo proporcional -->
                             <Image x:Name="imgLogo" Stretch="Uniform" Margin="25" Source="pack://application:,,,/logo.png"/>
                         </Border>
 
                         <TextBlock Text="T-PACE" FontSize="40" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
                         <StackPanel Grid.Row="1" Margin="0,0,0,30">
                             <TextBlock Text="FRENTE DE CAIXA" FontSize="17" FontWeight="SemiBold" Foreground="#D6C4E8" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                            <!-- Botão de Atualização (Nasce invisível) -->
                             <Button x:Name="btnAtualizar" Visibility="Collapsed" Content=" ATUALIZAR T-PACE" Background="#9867af" Foreground="White" FontWeight="Black" FontSize="14" Height="40" Cursor="Hand" Click="BtnAtualizar_Click" BorderThickness="0" Margin="0,20,0,0">
                                 <Button.Resources>
                                     <Style TargetType="Border">
@@ -113,9 +100,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ============================================== -->
-                <!-- LADO DIREITO: FORMULÁRIO E MENSAGENS -->
-                <!-- ============================================== -->
                 <Grid Grid.Column="1" Margin="40">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -123,7 +107,6 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <!-- Linha Nova -->
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -131,30 +114,24 @@
                     <TextBlock Grid.Row="0" Text="Bem-vindo(a)!" FontSize="30" FontWeight="Bold" Foreground="#2A1143" Margin="0,0,0,5"/>
                     <TextBlock Grid.Row="1" Text="Insira suas credenciais para acessar o PDV." FontSize="17" Foreground="#718096" Margin="0,0,0,30"/>
 
-                    <!-- Campo Usuário -->
                     <StackPanel Grid.Row="2" Margin="0,0,0,15">
                         <TextBlock Text="Usuário" Foreground="#4A5568" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <TextBox x:Name="txtUsuario" Height="45" FontSize="20" Foreground="#2D3748" />
                     </StackPanel>
 
-                    <!-- Campo Senha -->
                     <StackPanel Grid.Row="3" Margin="0,0,0,15">
                         <TextBlock Text="Senha" Foreground="#4A5568" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <PasswordBox x:Name="txtSenha" Height="45" FontSize="20" Foreground="#2D3748" />
                     </StackPanel>
 
-                    <!-- Campo Fundo de Troco Inicial -->
                     <StackPanel Grid.Row="4" Margin="0,0,0,5">
                         <TextBlock Text="Fundo Inicial na Gaveta (R$)" Foreground="#4A5568" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <TextBox x:Name="txtFundoTroco" Height="45" FontSize="20" FontWeight="Bold" Foreground="#A45FCE" Text="0,00" />
                     </StackPanel>
 
-                    <!-- MENSAGEM DE ERRO -->
                     <TextBlock Grid.Row="5" x:Name="txtMensagem" Foreground="#E53E3E" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
 
-                    <!-- Botões -->
                     <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <!-- Botões continuam iguais -->
                         <Button x:Name="btnCancelar" Style="{StaticResource BtnModerno}" Content="Sair" Width="100" Height="45" Background="#E2E8F0" Foreground="#4A5568" Margin="0,0,15,0" Click="BtnCancelar_Click" IsCancel="True" />
                         <Button x:Name="btnOk" Style="{StaticResource BtnModerno}" Content="Entrar" Width="130" Height="45" Background="#A45FCE" Click="BtnOk_Click" IsDefault="True"/>
                     </StackPanel>

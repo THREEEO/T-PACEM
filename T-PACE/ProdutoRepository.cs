@@ -16,13 +16,10 @@ namespace T_PACE
             }
         }
 
-        // NOVO MÉTODO DE BUSCA POR NOME (F4)
         public List<Produto> BuscarPorNome(string parteNome)
         {
             using (var connection = new SqliteConnection(DatabaseConfig.ConnectionString))
             {
-                // Usamos LIKE %termo% para encontrar a palavra em qualquer parte do nome
-                // Limitamos a 50 itens para a pesquisa ser extremamente rápida
                 string sql = "SELECT * FROM tb_produtos WHERE nome LIKE @Nome LIMIT 50";
                 return connection.Query<Produto>(sql, new { Nome = $"%{parteNome}%" }).ToList();
             }
